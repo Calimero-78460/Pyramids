@@ -1,0 +1,2312 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grande Pyramide · Modèle 3D interactif</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #d4a747;
+    --gold-bright: #f0c45a;
+    --sand: #e8d4a8;
+    --paper: #f4ead3;
+    --ink: #0d0905;
+    --panel: rgba(20, 14, 6, 0.92);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Cormorant Garamond', serif;
+    background: #000;
+    color: var(--paper);
+    position: relative;
+  }
+  #canvas-container {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center bottom, #1a1208 0%, #000 70%);
+  }
+  canvas { display: block; }
+
+  /* Header */
+  .header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%);
+    z-index: 10;
+    pointer-events: none;
+  }
+  .header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.3rem;
+    color: var(--gold-bright);
+    letter-spacing: 0.15em;
+    font-weight: 400;
+  }
+  .header .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-top: 0.3rem;
+    opacity: 0.7;
+  }
+
+  /* Mode selector */
+  .modes {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    z-index: 20;
+  }
+  .mode-btn {
+    background: var(--panel);
+    border: 1px solid rgba(212, 167, 71, 0.3);
+    color: var(--paper);
+    padding: 0.5rem 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: left;
+    min-width: 180px;
+    backdrop-filter: blur(8px);
+  }
+  .mode-btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+  .mode-btn.active {
+    background: rgba(212, 167, 71, 0.15);
+    border-color: var(--gold);
+    color: var(--gold-bright);
+    box-shadow: 0 0 20px rgba(212, 167, 71, 0.2);
+  }
+  .mode-btn .num {
+    color: var(--gold);
+    margin-right: 0.5rem;
+    opacity: 0.6;
+  }
+
+  /* Sub-mode selector for stellar mode */
+  .sub-modes {
+    position: absolute;
+    top: 1rem;
+    right: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    z-index: 20;
+    padding: 0.7rem;
+    background: rgba(20, 14, 6, 0.85);
+    border: 1px dashed rgba(170, 204, 255, 0.3);
+    backdrop-filter: blur(8px);
+    animation: slideIn 0.4s ease-out;
+  }
+  .sub-modes-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: #aaccff;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+    opacity: 0.7;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .sub-mode-btn {
+    background: rgba(170, 204, 255, 0.05);
+    border: 1px solid rgba(170, 204, 255, 0.25);
+    color: var(--paper);
+    padding: 0.4rem 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: left;
+    min-width: 170px;
+    display: flex;
+    align-items: center;
+  }
+  .sub-mode-btn:hover {
+    border-color: #aaccff;
+    color: #aaccff;
+    background: rgba(170, 204, 255, 0.1);
+  }
+  .sub-mode-btn.active {
+    background: rgba(170, 204, 255, 0.18);
+    border-color: #aaccff;
+    color: #aaccff;
+    box-shadow: 0 0 15px rgba(170, 204, 255, 0.25);
+  }
+  .sub-letter {
+    color: #aaccff;
+    background: rgba(170, 204, 255, 0.15);
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .sub-mode-btn.active .sub-letter {
+    background: #aaccff;
+    color: var(--ink);
+  }
+
+  /* Info panel */
+  .info-panel {
+    position: absolute;
+    bottom: 5rem;
+    left: 1rem;
+    width: 360px;
+    min-width: 220px;
+    min-height: 80px;
+    max-width: 90vw;
+    max-height: 70vh;
+    background: var(--panel);
+    border: 1px solid rgba(212, 167, 71, 0.3);
+    z-index: 15;
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    resize: both;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .info-panel.dragging { transition: none; user-select: none; }
+  .info-panel.minimized {
+    height: auto !important;
+    min-height: 0;
+    resize: none;
+  }
+  .info-panel.minimized .info-body { display: none; }
+  .info-panel.minimized .info-resize { display: none; }
+  .info-panel::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px;
+    width: 12px; height: 12px;
+    border-top: 2px solid var(--gold);
+    border-left: 2px solid var(--gold);
+    pointer-events: none;
+  }
+  .info-panel::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; right: -1px;
+    width: 12px; height: 12px;
+    border-bottom: 2px solid var(--gold);
+    border-right: 2px solid var(--gold);
+    pointer-events: none;
+  }
+
+  .info-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 0.9rem;
+    background: linear-gradient(180deg, rgba(212, 167, 71, 0.15) 0%, rgba(212, 167, 71, 0.04) 100%);
+    border-bottom: 1px solid rgba(212, 167, 71, 0.2);
+    cursor: move;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .info-header .grip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    color: var(--gold);
+    text-transform: uppercase;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .info-header .grip::before {
+    content: '⋮⋮';
+    letter-spacing: -2px;
+    font-size: 0.9rem;
+    opacity: 0.6;
+  }
+  .info-actions {
+    display: flex;
+    gap: 0.3rem;
+  }
+  .info-actions button {
+    background: transparent;
+    border: 1px solid rgba(212, 167, 71, 0.4);
+    color: var(--gold);
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+  }
+  .info-actions button:hover {
+    background: var(--gold);
+    color: var(--ink);
+  }
+
+  .info-body {
+    padding: 1rem 1.2rem 1.2rem;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold) transparent;
+  }
+  .info-body::-webkit-scrollbar { width: 6px; }
+  .info-body::-webkit-scrollbar-thumb { background: var(--gold); opacity: 0.5; }
+  .info-body::-webkit-scrollbar-track { background: transparent; }
+
+  .info-resize {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    pointer-events: none;
+    background-image:
+      linear-gradient(135deg, transparent 50%, var(--gold) 50%, var(--gold) 60%, transparent 60%, transparent 70%, var(--gold) 70%, var(--gold) 80%, transparent 80%);
+    opacity: 0.7;
+  }
+
+  .info-panel h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-bright);
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.6rem;
+    font-weight: 400;
+  }
+  .info-panel p {
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: rgba(244, 234, 211, 0.9);
+    margin-bottom: 0.5rem;
+  }
+  .info-panel .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--sand);
+    background: rgba(0,0,0,0.4);
+    padding: 0.5rem 0.7rem;
+    border-left: 2px solid var(--gold);
+    margin: 0.6rem 0;
+  }
+
+  /* Controls bar */
+  .controls {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    border: 1px solid rgba(212, 167, 71, 0.3);
+    padding: 0.7rem 1.2rem;
+    display: flex;
+    gap: 1.2rem;
+    align-items: center;
+    z-index: 15;
+    backdrop-filter: blur(8px);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100% - 2rem);
+  }
+  .ctrl {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    align-items: center;
+  }
+  .ctrl label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+  .ctrl input[type="range"] {
+    width: 100px;
+    accent-color: var(--gold);
+  }
+  .ctrl-btn {
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold-bright);
+    padding: 0.4rem 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.3s;
+  }
+  .ctrl-btn:hover {
+    background: var(--gold);
+    color: var(--ink);
+  }
+
+  /* Hint */
+  .hint {
+    position: absolute;
+    top: 4.5rem;
+    left: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: rgba(244, 234, 211, 0.5);
+    letter-spacing: 0.15em;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* Loading */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.3em;
+  }
+
+  @media (max-width: 700px) {
+    .modes { top: auto; bottom: 6rem; right: 0.5rem; }
+    .mode-btn { min-width: 140px; font-size: 0.6rem; padding: 0.4rem 0.6rem; }
+    .sub-modes { top: auto; bottom: 14rem; right: 0.5rem; padding: 0.5rem; }
+    .sub-mode-btn { min-width: 140px; font-size: 0.55rem; padding: 0.3rem 0.5rem; }
+    .info-panel { left: 0.5rem; right: 0.5rem; width: auto; max-width: none; bottom: 12rem; }
+    .header h1 { font-size: 1rem; }
+    .controls { bottom: 0.5rem; padding: 0.5rem 0.8rem; gap: 0.6rem; }
+    .ctrl input[type="range"] { width: 70px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">CHARGEMENT…</div>
+
+<div id="canvas-container"></div>
+
+<div class="header">
+  <h1>LA GRANDE PYRAMIDE</h1>
+  <div class="sub">Modèle 3D · Khufu ca. 2560 av. J.-C.</div>
+</div>
+
+<div class="hint">◐ Glisser pour orbiter · molette pour zoomer</div>
+
+<div class="modes">
+  <button class="mode-btn active" data-mode="geometry"><span class="num">01</span>Géométrie & π/φ</button>
+  <button class="mode-btn" data-mode="measures"><span class="num">02</span>Mesures égyptiennes</button>
+  <button class="mode-btn" data-mode="rolling"><span class="num">03</span>Le tambour & π</button>
+  <button class="mode-btn" data-mode="stars"><span class="num">04</span>Alignement stellaire</button>
+</div>
+
+<div class="sub-modes" id="sub-modes" style="display:none">
+  <div class="sub-modes-title">↳ Sous-vues</div>
+  <button class="sub-mode-btn active" data-sub="cardinals"><span class="sub-letter">A</span>Cardinaux</button>
+  <button class="sub-mode-btn" data-sub="shafts"><span class="sub-letter">B</span>Conduits internes</button>
+  <button class="sub-mode-btn" data-sub="giza"><span class="sub-letter">C</span>3 pyramides & Orion</button>
+</div>
+
+<div class="info-panel" id="info">
+  <div class="info-header" id="info-header">
+    <span class="grip">Commentaire</span>
+    <div class="info-actions">
+      <button id="info-minimize" title="Réduire/Agrandir">−</button>
+    </div>
+  </div>
+  <div class="info-body" id="info-body">
+    <h2>Géométrie sacrée</h2>
+    <p>Les proportions de la pyramide font émerger π et φ. Le périmètre de la base divisé par deux fois la hauteur donne ≈ 3,1427.</p>
+    <div class="formula">P / (2h) = 921,6 / 293,2 ≈ π</div>
+    <p>L'apothème divisé par la demi-base donne ≈ 1,618 — le nombre d'or φ.</p>
+    <div class="formula">apothème / (b/2) ≈ φ</div>
+  </div>
+  <div class="info-resize"></div>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn" id="rotate-toggle">⟲ AUTO</button>
+  <div class="ctrl">
+    <label>Opacité</label>
+    <input type="range" id="opacity" min="20" max="100" value="65">
+  </div>
+  <div class="ctrl" id="time-ctrl" style="display:none">
+    <label>Temps</label>
+    <input type="range" id="time-slider" min="0" max="100" value="0">
+  </div>
+  <div class="ctrl" id="pi-ctrl" style="display:none">
+    <label>π · périmètre parcouru</label>
+    <div style="display:flex; gap:0.4rem; align-items:center;">
+      <button class="ctrl-btn small" id="pi-play" style="padding:0.2rem 0.5rem; font-size:0.65rem;">▶</button>
+      <input type="range" id="pi-slider" min="0" max="1000" value="0">
+    </div>
+  </div>
+  <button class="ctrl-btn" id="reset">↺ RESET</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+// ===== Constants =====
+const PHI = 1.6180339887;
+const PI = Math.PI;
+// Real Khufu dimensions scaled down
+const BASE = 230.4 / 50; // 4.608
+const HEIGHT = 146.6 / 50; // 2.932
+const APOTHEM = Math.sqrt(HEIGHT*HEIGHT + (BASE/2)*(BASE/2)); // ~3.728
+const HALF_BASE = BASE / 2;
+
+// ===== Scene setup =====
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0d0905, 0.025);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(8, 4, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 4;
+controls.maxDistance = 45;
+controls.target.set(0, HEIGHT/2, 0);
+
+// ===== Lighting =====
+const ambient = new THREE.AmbientLight(0x3a2a18, 0.6);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xf0c45a, 1.5);
+keyLight.position.set(5, 8, 4);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -20;
+keyLight.shadow.camera.right = 20;
+keyLight.shadow.camera.top = 20;
+keyLight.shadow.camera.bottom = -20;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x6b4a8c, 0.4);
+fillLight.position.set(-5, 3, -3);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0xd4a747, 1.5, 20);
+rimLight.position.set(0, HEIGHT + 1, 0);
+scene.add(rimLight);
+
+// ===== Ground =====
+const groundGeo = new THREE.CircleGeometry(15, 64);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x3a2818,
+  roughness: 0.9,
+  metalness: 0.1
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Ground grid
+const gridHelper = new THREE.PolarGridHelper(12, 8, 6, 64, 0x8b6f47, 0x5c4a32);
+gridHelper.material.opacity = 0.15;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// ===== Pyramid =====
+const pyramidGroup = new THREE.Group();
+scene.add(pyramidGroup);
+
+// Solid pyramid
+const pyramidGeo = new THREE.ConeGeometry(BASE/Math.sqrt(2), HEIGHT, 4);
+const pyramidMat = new THREE.MeshStandardMaterial({
+  color: 0xc9a86a,
+  roughness: 0.85,
+  metalness: 0.05,
+  transparent: true,
+  opacity: 0.65,
+  side: THREE.DoubleSide,
+  flatShading: true
+});
+const pyramid = new THREE.Mesh(pyramidGeo, pyramidMat);
+pyramid.position.y = HEIGHT/2;
+pyramid.rotation.y = PI/4; // align faces to cardinal points
+pyramid.castShadow = true;
+pyramid.receiveShadow = true;
+pyramidGroup.add(pyramid);
+
+// Wireframe
+const wireGeo = new THREE.EdgesGeometry(pyramidGeo);
+const wireMat = new THREE.LineBasicMaterial({ color: 0xf0c45a, linewidth: 2 });
+const wireframe = new THREE.LineSegments(wireGeo, wireMat);
+wireframe.position.y = HEIGHT/2;
+wireframe.rotation.y = PI/4;
+pyramidGroup.add(wireframe);
+
+// ===== Geometry mode elements =====
+const geometryGroup = new THREE.Group();
+scene.add(geometryGroup);
+
+// Height line (axis)
+const heightPts = [
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0, HEIGHT, 0)
+];
+const heightLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(heightPts),
+  new THREE.LineDashedMaterial({ color: 0xf0c45a, dashSize: 0.1, gapSize: 0.06 })
+);
+heightLine.computeLineDistances();
+geometryGroup.add(heightLine);
+
+// Apothem line (from apex to middle of base side)
+const apothemPts = [
+  new THREE.Vector3(0, HEIGHT, 0),
+  new THREE.Vector3(0, 0, BASE/2)
+];
+const apothemLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(apothemPts),
+  new THREE.LineBasicMaterial({ color: 0xff6b6b, linewidth: 3 })
+);
+geometryGroup.add(apothemLine);
+
+// Half-base line
+const halfBasePts = [
+  new THREE.Vector3(0, 0.01, 0),
+  new THREE.Vector3(0, 0.01, BASE/2)
+];
+const halfBaseLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(halfBasePts),
+  new THREE.LineBasicMaterial({ color: 0x6bcaff, linewidth: 3 })
+);
+geometryGroup.add(halfBaseLine);
+
+// Cheops triangle highlight (semi-transparent face)
+const triangleShape = new THREE.Shape();
+triangleShape.moveTo(0, 0);
+triangleShape.lineTo(BASE/2, 0);
+triangleShape.lineTo(0, HEIGHT);
+triangleShape.lineTo(0, 0);
+const triangleGeo = new THREE.ShapeGeometry(triangleShape);
+const triangleMat = new THREE.MeshBasicMaterial({
+  color: 0xf0c45a,
+  transparent: true,
+  opacity: 0.2,
+  side: THREE.DoubleSide
+});
+const triangle = new THREE.Mesh(triangleGeo, triangleMat);
+triangle.rotation.y = PI/2;
+geometryGroup.add(triangle);
+
+// Angle arc at base (51°50')
+const angleArcGeo = new THREE.RingGeometry(0.4, 0.42, 32, 1, 0, 0.9046);
+const angleArcMat = new THREE.MeshBasicMaterial({
+  color: 0xf0c45a,
+  side: THREE.DoubleSide
+});
+const angleArc = new THREE.Mesh(angleArcGeo, angleArcMat);
+angleArc.position.set(0, 0.02, BASE/2 - 0.4);
+angleArc.rotation.x = -PI/2;
+angleArc.rotation.z = PI;
+geometryGroup.add(angleArc);
+
+// Sprite labels
+function makeLabelSprite(text, color = '#f0c45a', size = 256, fontSize = 48) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size/2;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(13, 9, 5, 0.85)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, canvas.width-2, canvas.height-2);
+  ctx.fillStyle = color;
+  ctx.font = `${fontSize}px "Cinzel", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width/2, canvas.height/2);
+  const texture = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.2, 0.6, 1);
+  return sprite;
+}
+
+const phiLabel = makeLabelSprite('φ ≈ 1.618', '#ff8b6b');
+phiLabel.position.set(0, HEIGHT*0.55, BASE/4 + 0.5);
+geometryGroup.add(phiLabel);
+
+// Apothème label — placed at the midpoint of the apothem line (apex → base-side middle)
+// Apothem line: from (0, HEIGHT, 0) to (0, 0, BASE/2). Midpoint = (0, HEIGHT/2, BASE/4)
+const apothemeLabel = makeLabelSprite('apothème', '#ff6b6b', 280, 36);
+apothemeLabel.scale.set(1.3, 0.4, 1);
+apothemeLabel.position.set(0, HEIGHT/2 + 0.15, BASE/4 - 0.45);
+geometryGroup.add(apothemeLabel);
+
+// b/2 label — placed at the midpoint of the half-base line (center → base-side middle)
+// Half-base line: from (0, 0, 0) to (0, 0, BASE/2). Midpoint = (0, 0, BASE/4)
+const halfBaseLabel = makeLabelSprite('b/2', '#6bcaff', 160, 44);
+halfBaseLabel.scale.set(0.7, 0.4, 1);
+halfBaseLabel.position.set(0, 0.35, BASE/4);
+geometryGroup.add(halfBaseLabel);
+
+// φ ratio formula label — clarifies the relationship between the two segments
+const phiRatioLabel = makeLabelSprite('apothème / (b/2) = φ', '#ff8b6b', 420, 32);
+phiRatioLabel.scale.set(1.9, 0.36, 1);
+phiRatioLabel.position.set(0, HEIGHT*0.55 - 0.45, BASE/4 + 0.5);
+geometryGroup.add(phiRatioLabel);
+
+const piLabel = makeLabelSprite('π ≈ 3.1416', '#6bcaff');
+piLabel.position.set(-HEIGHT - 0.6, HEIGHT/2, 0);
+piLabel.material.opacity = 0;
+piLabel.material.transparent = true;
+piLabel.visible = false; // revealed at the end of the Pi animation
+geometryGroup.add(piLabel);
+
+const angleLabel = makeLabelSprite("51°50'", '#f0c45a', 200, 40);
+angleLabel.scale.set(0.9, 0.45, 1);
+angleLabel.position.set(0, 0.4, BASE/2 - 0.8);
+geometryGroup.add(angleLabel);
+
+const heightLabel = makeLabelSprite('h = 146.6 m', '#f0c45a', 280, 36);
+heightLabel.scale.set(1.3, 0.4, 1);
+heightLabel.position.set(-0.8, HEIGHT/2, 0);
+geometryGroup.add(heightLabel);
+
+const baseLabel = makeLabelSprite('b = 230.4 m', '#f0c45a', 280, 36);
+baseLabel.scale.set(1.3, 0.4, 1);
+baseLabel.position.set(0, -0.3, BASE/2 + 0.3);
+geometryGroup.add(baseLabel);
+
+// ============================================================
+// PI ANIMATION — illustrates P = 2πh
+// ============================================================
+// As a marker travels the perimeter (total length P), simultaneously:
+// - draw a horizontal circle on the ground of radius h (so its circumference = 2πh = P)
+// - draw a vertical circle of radius h (diameter = 2h = pyramid full height "stack")
+// When the marker completes the full perimeter, both circles are exactly closed.
+
+const piAnimGroup = new THREE.Group();
+geometryGroup.add(piAnimGroup);
+
+// === The marker on the perimeter (a glowing pearl) ===
+const markerGeo = new THREE.SphereGeometry(0.09, 16, 16);
+const markerMat = new THREE.MeshBasicMaterial({ color: 0xff4d6b });
+const perimeterMarker = new THREE.Mesh(markerGeo, markerMat);
+// Halo for visibility
+const markerHalo = new THREE.Mesh(
+  new THREE.SphereGeometry(0.2, 16, 16),
+  new THREE.MeshBasicMaterial({ color: 0xff4d6b, transparent: true, opacity: 0.35 })
+);
+perimeterMarker.add(markerHalo);
+perimeterMarker.position.set(BASE/2, 0.06, BASE/2);
+piAnimGroup.add(perimeterMarker);
+
+// === Perimeter trace (the path already walked) ===
+// We pre-build the 4-segment perimeter in order, then draw a portion of it.
+const perimeterCorners = [
+  new THREE.Vector3( BASE/2, 0.05,  BASE/2),  // start (SE)
+  new THREE.Vector3(-BASE/2, 0.05,  BASE/2),  // SW
+  new THREE.Vector3(-BASE/2, 0.05, -BASE/2),  // NW
+  new THREE.Vector3( BASE/2, 0.05, -BASE/2),  // NE
+  new THREE.Vector3( BASE/2, 0.05,  BASE/2)   // back to SE (closes loop)
+];
+const PERIM_TOTAL = 4 * BASE; // = 4 * 4.608 = 18.432 units (≈ 921.6 m)
+
+// Buffer for the dynamic perimeter trace (max ~256 vertices)
+const perimTraceMaxPts = 260;
+const perimTraceGeo = new THREE.BufferGeometry();
+perimTraceGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(perimTraceMaxPts * 3), 3));
+perimTraceGeo.setDrawRange(0, 0);
+const perimTraceMat = new THREE.LineBasicMaterial({ color: 0xff4d6b, linewidth: 3 });
+const perimeterTrace = new THREE.Line(perimTraceGeo, perimTraceMat);
+piAnimGroup.add(perimeterTrace);
+
+// === Horizontal circle (ground, radius = h, centered on pyramid center) ===
+// circumference = 2πh = P
+const groundCircleSegments = 256;
+const groundCircleGeo = new THREE.BufferGeometry();
+groundCircleGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(groundCircleSegments * 3), 3));
+groundCircleGeo.setDrawRange(0, 0);
+const groundCircleMat = new THREE.LineBasicMaterial({ color: 0x6bcaff, linewidth: 3 });
+const groundCircle = new THREE.Line(groundCircleGeo, groundCircleMat);
+piAnimGroup.add(groundCircle);
+
+// === Vertical circle (radius = h, centered on the pyramid's base center) ===
+// Centered at (0, 0, 0) with radius h, in the X-Y plane (Z = 0).
+// It spans from y = +h (apex height) down to y = -h (mirror below the base).
+// The UPPER radius (base center → apex) coincides exactly with the pyramid's height axis.
+// Rendered ON TOP of the ground (depthTest off) so the FULL circle is always visible,
+// including the lower half that extends below the base — illustrating it mathematically.
+const vertCircleSegments = 256;
+const vertCircleGeo = new THREE.BufferGeometry();
+vertCircleGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((vertCircleSegments + 1) * 3), 3));
+vertCircleGeo.setDrawRange(0, 0);
+const vertCircleMat = new THREE.LineBasicMaterial({
+  color: 0xffaa3d,
+  transparent: true,
+  depthTest: false  // always visible, even through the ground plane
+});
+const verticalCircle = new THREE.Line(vertCircleGeo, vertCircleMat);
+verticalCircle.renderOrder = 5;
+piAnimGroup.add(verticalCircle);
+
+// A faint disc fill to suggest the circle's plane cutting through the base (didactic)
+const vertDiscGeo = new THREE.CircleGeometry(HEIGHT, 64);
+const vertDiscMat = new THREE.MeshBasicMaterial({
+  color: 0xffaa3d,
+  transparent: true,
+  opacity: 0.06,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+  depthTest: false
+});
+const vertDisc = new THREE.Mesh(vertDiscGeo, vertDiscMat);
+vertDisc.position.set(0, 0, 0); // in X-Y plane (Z = 0) — matches the circle
+vertDisc.renderOrder = 4;
+vertDisc.visible = false; // only shown once the circle is complete
+piAnimGroup.add(vertDisc);
+
+// === Centre points & helper lines ===
+// Center dot on ground
+const centerDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.06, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0x6bcaff })
+);
+centerDot.position.set(0, 0.07, 0);
+piAnimGroup.add(centerDot);
+
+// Radius indicators (showing that both circles share radius = h)
+// Horizontal radius from center to current ground circle point
+const groundRadiusPts = [
+  new THREE.Vector3(0, 0.06, 0),
+  new THREE.Vector3(HEIGHT, 0.06, 0)
+];
+const groundRadiusGeo = new THREE.BufferGeometry().setFromPoints(groundRadiusPts);
+const groundRadiusLine = new THREE.Line(
+  groundRadiusGeo,
+  new THREE.LineBasicMaterial({ color: 0x6bcaff, transparent: true, opacity: 0.7 })
+);
+piAnimGroup.add(groundRadiusLine);
+
+// Vertical radius from base center up to apex height — coincides with pyramid height
+const vertRadiusPts = [
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0, HEIGHT, 0)
+];
+const vertRadiusGeo = new THREE.BufferGeometry().setFromPoints(vertRadiusPts);
+const vertRadiusLine = new THREE.Line(
+  vertRadiusGeo,
+  new THREE.LineBasicMaterial({ color: 0xffaa3d, transparent: true, opacity: 0.9, depthTest: false })
+);
+vertRadiusLine.renderOrder = 6;
+piAnimGroup.add(vertRadiusLine);
+
+// Lower radius (dashed) from base center down to -h — the mathematical mirror below the base
+const vertRadiusDownPts = [
+  new THREE.Vector3(0, 0, 0),
+  new THREE.Vector3(0, -HEIGHT, 0)
+];
+const vertRadiusDownGeo = new THREE.BufferGeometry().setFromPoints(vertRadiusDownPts);
+const vertRadiusDownLine = new THREE.Line(
+  vertRadiusDownGeo,
+  new THREE.LineDashedMaterial({ color: 0xffaa3d, dashSize: 0.14, gapSize: 0.1, transparent: true, opacity: 0.5, depthTest: false })
+);
+vertRadiusDownLine.renderOrder = 6;
+vertRadiusDownLine.computeLineDistances();
+piAnimGroup.add(vertRadiusDownLine);
+
+// Marker at the apex height (top of the vertical radius)
+const vertApexDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.06, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0xffaa3d, depthTest: false })
+);
+vertApexDot.position.set(0, HEIGHT, 0);
+vertApexDot.renderOrder = 6;
+piAnimGroup.add(vertApexDot);
+
+// Marker at the bottom (-h) of the vertical circle
+const vertBottomDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.05, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0xffaa3d, transparent: true, opacity: 0.6, depthTest: false })
+);
+vertBottomDot.position.set(0, -HEIGHT, 0);
+vertBottomDot.renderOrder = 6;
+piAnimGroup.add(vertBottomDot);
+
+// Labels for the animation — hidden until the animation completes
+const piAnimLabel = makeLabelSprite('C = 2πh = P', '#6bcaff', 320, 36);
+piAnimLabel.scale.set(1.5, 0.4, 1);
+piAnimLabel.position.set(HEIGHT + 0.4, 0.4, 0);
+piAnimLabel.material.transparent = true;
+piAnimLabel.material.opacity = 0;
+piAnimLabel.visible = false;
+piAnimGroup.add(piAnimLabel);
+
+const vertCircleLabel = makeLabelSprite('r = h', '#ffaa3d', 180, 44);
+vertCircleLabel.scale.set(0.85, 0.42, 1);
+vertCircleLabel.position.set(0.55, HEIGHT/2, 0);
+vertCircleLabel.material.transparent = true;
+vertCircleLabel.material.opacity = 0;
+vertCircleLabel.visible = false;
+piAnimGroup.add(vertCircleLabel);
+
+// Top (+h) and bottom (-h) tick labels for the vertical circle
+const vertTopLabel = makeLabelSprite('+h', '#ffaa3d', 120, 44);
+vertTopLabel.scale.set(0.5, 0.4, 1);
+vertTopLabel.position.set(0.5, HEIGHT, 0);
+vertTopLabel.material.transparent = true;
+vertTopLabel.material.opacity = 0;
+vertTopLabel.visible = false;
+piAnimGroup.add(vertTopLabel);
+
+const vertBottomLabel = makeLabelSprite('−h', '#ffaa3d', 120, 44);
+vertBottomLabel.scale.set(0.5, 0.4, 1);
+vertBottomLabel.position.set(0.5, -HEIGHT, 0);
+vertBottomLabel.material.transparent = true;
+vertBottomLabel.material.opacity = 0;
+vertBottomLabel.visible = false;
+piAnimGroup.add(vertBottomLabel);
+
+// === Final reveal label — appears when the animation completes ===
+// Big floating equation that summarizes the demonstration
+const piRevealLabel = makeLabelSprite('P = 2πh  ⇒  π = P / 2h', '#6bcaff', 520, 44);
+piRevealLabel.scale.set(2.4, 0.5, 1);
+piRevealLabel.position.set(0, HEIGHT + 1.5, 0);
+piRevealLabel.material.transparent = true;
+piRevealLabel.material.opacity = 0;
+piRevealLabel.visible = false;
+piAnimGroup.add(piRevealLabel);
+
+// A smaller numeric proof label below
+const piProofLabel = makeLabelSprite('921,6 / 293,2 ≈ 3,1427', '#aaccff', 400, 32);
+piProofLabel.scale.set(1.8, 0.36, 1);
+piProofLabel.position.set(0, HEIGHT + 0.95, 0);
+piProofLabel.material.transparent = true;
+piProofLabel.material.opacity = 0;
+piProofLabel.visible = false;
+piAnimGroup.add(piProofLabel);
+
+// Dynamic distance label (above the perimeter marker)
+let perimDistLabel = null;
+function updatePerimDistLabel(walked) {
+  if (perimDistLabel) {
+    piAnimGroup.remove(perimDistLabel);
+    perimDistLabel.material.map.dispose();
+    perimDistLabel.material.dispose();
+  }
+  const meters = (walked / SCALE_PERIM) * 921.6 / PERIM_TOTAL;
+  // Easier: walked is already in scene units, 1 unit = 50m
+  const meters2 = walked * 50;
+  perimDistLabel = makeLabelSprite(meters2.toFixed(0) + ' m parcourus', '#ff4d6b', 320, 32);
+  perimDistLabel.scale.set(1.5, 0.35, 1);
+  perimDistLabel.position.copy(perimeterMarker.position);
+  perimDistLabel.position.y += 0.6;
+  piAnimGroup.add(perimDistLabel);
+}
+const SCALE_PERIM = 1; // unused — kept for clarity, walked is already in units
+
+// Helper: compute position along perimeter given walked distance
+function positionOnPerimeter(walked) {
+  // walked in [0, PERIM_TOTAL]
+  walked = Math.max(0, Math.min(walked, PERIM_TOTAL));
+  const sideLen = BASE;
+  const segment = Math.floor(walked / sideLen);
+  const t = (walked - segment * sideLen) / sideLen;
+  const a = perimeterCorners[segment];
+  const b = perimeterCorners[segment + 1];
+  return new THREE.Vector3().lerpVectors(a, b, t);
+}
+
+// Main update function — called by the slider
+function updatePiAnimation(progress) {
+  // progress in [0, 1]
+  const walked = progress * PERIM_TOTAL;
+
+  // 1. Move marker along perimeter
+  const markerPos = positionOnPerimeter(walked);
+  perimeterMarker.position.copy(markerPos);
+  updatePerimDistLabel(walked);
+
+  // 2. Build perimeter trace polyline up to the current position
+  const tracePts = [perimeterCorners[0].clone()];
+  const sideLen = BASE;
+  const segment = Math.floor(walked / sideLen);
+  const inSegment = (walked - segment * sideLen) / sideLen;
+  for (let i = 1; i <= segment && i < perimeterCorners.length; i++) {
+    tracePts.push(perimeterCorners[i].clone());
+  }
+  // Add the current marker position (partial segment)
+  if (segment < 4) {
+    tracePts.push(markerPos.clone());
+  }
+  // Write into the buffer
+  const tracePosAttr = perimTraceGeo.attributes.position;
+  for (let i = 0; i < tracePts.length; i++) {
+    tracePosAttr.setXYZ(i, tracePts[i].x, tracePts[i].y, tracePts[i].z);
+  }
+  tracePosAttr.needsUpdate = true;
+  perimTraceGeo.setDrawRange(0, tracePts.length);
+
+  // 3. Draw partial ground circle (radius = h, same arc length as `walked`)
+  // arc angle = walked / h  (since arc = radius × angle)
+  const arcAngle = walked / HEIGHT;
+  const gcPosAttr = groundCircleGeo.attributes.position;
+  const gcSegs = Math.max(1, Math.ceil(arcAngle / (2 * PI) * groundCircleSegments));
+  for (let i = 0; i <= gcSegs; i++) {
+    const t = (i / gcSegs) * arcAngle;
+    // Start at the same starting corner as the perimeter marker (SE = +X, +Z)
+    // Initial angle: at the SE corner the marker starts and moves toward SW, i.e. -X direction.
+    // For the ground circle to "track" intuitively, start it at angle = π/4 (pointing to SE)
+    // and rotate in the same direction as the marker (initially going toward -X means decreasing angle counterclockwise? Let's keep it simple: start at angle 0 and rotate counterclockwise)
+    const angle = t; // simply rotate from 0
+    gcPosAttr.setXYZ(i, Math.cos(angle) * HEIGHT, 0.06, Math.sin(angle) * HEIGHT);
+  }
+  gcPosAttr.needsUpdate = true;
+  groundCircleGeo.setDrawRange(0, gcSegs + 1);
+
+  // Update the moving ground radius indicator
+  const currentGroundEnd = new THREE.Vector3(
+    Math.cos(arcAngle) * HEIGHT,
+    0.06,
+    Math.sin(arcAngle) * HEIGHT
+  );
+  groundRadiusGeo.setFromPoints([
+    new THREE.Vector3(0, 0.06, 0),
+    currentGroundEnd
+  ]);
+
+  // 4. Draw partial vertical circle (radius = h, same arc length)
+  // Vertical circle: CENTER at the base center (0, 0, 0), in the X-Y plane (Z = 0).
+  // Spans y = +h (apex height) down to y = -h. Rendered on top of the ground so the
+  // full circle is visible, including the lower half extending below the base.
+  // Parametric: ( h*cos(θ), h*sin(θ), 0 ), starting at θ = +π/2 (top = apex height)
+  const vcPosAttr = vertCircleGeo.attributes.position;
+  const vcSegs = Math.max(1, Math.ceil(arcAngle / (2 * PI) * vertCircleSegments));
+  for (let i = 0; i <= vcSegs; i++) {
+    const t = (i / vcSegs) * arcAngle;
+    const theta = PI/2 - t; // start at top (0, +h, 0) = apex height, rotate clockwise
+    vcPosAttr.setXYZ(i, Math.cos(theta) * HEIGHT, Math.sin(theta) * HEIGHT, 0);
+  }
+  vcPosAttr.needsUpdate = true;
+  vertCircleGeo.setDrawRange(0, vcSegs + 1);
+
+  // Show the faint disc fill only when the circle is essentially complete
+  vertDisc.visible = (progress >= 0.985);
+
+  // ===== Reveal logic =====
+  // When the animation completes (progress ≈ 1), reveal the conclusion labels.
+  // When the user scrubs back below the threshold, hide them again so the demonstration can be replayed cleanly.
+  const REVEAL_THRESHOLD = 0.985;
+  if (progress >= REVEAL_THRESHOLD) {
+    piRevealTargetOpacity = 1;
+  } else {
+    piRevealTargetOpacity = 0;
+  }
+}
+
+// State for the fade animation
+let piRevealTargetOpacity = 0;
+let piRevealCurrentOpacity = 0;
+const piRevealLabels = [piLabel, piAnimLabel, vertCircleLabel, vertTopLabel, vertBottomLabel, piRevealLabel, piProofLabel];
+
+function tickPiReveal() {
+  // Smoothly approach the target opacity
+  const diff = piRevealTargetOpacity - piRevealCurrentOpacity;
+  if (Math.abs(diff) < 0.001) {
+    if (piRevealCurrentOpacity !== piRevealTargetOpacity) {
+      piRevealCurrentOpacity = piRevealTargetOpacity;
+    } else {
+      return;
+    }
+  } else {
+    piRevealCurrentOpacity += diff * 0.08; // ease toward target
+  }
+  // Apply to all reveal labels
+  piRevealLabels.forEach(lbl => {
+    if (piRevealCurrentOpacity > 0.01) {
+      lbl.visible = true;
+      lbl.material.opacity = piRevealCurrentOpacity;
+    } else {
+      lbl.visible = false;
+      lbl.material.opacity = 0;
+    }
+  });
+}
+
+// Initialize at 0
+updatePiAnimation(0);
+
+// ===== Measures mode (Egyptian cubits) =====
+const measuresGroup = new THREE.Group();
+measuresGroup.visible = false;
+scene.add(measuresGroup);
+
+// 440 cubits along base = mark every 40 cubits = 11 marks
+const cubitMarks = 11;
+const baseSegment = BASE / cubitMarks;
+for (let i = 0; i <= cubitMarks; i++) {
+  const markGeo = new THREE.BoxGeometry(0.04, 0.08, 0.04);
+  const markMat = new THREE.MeshBasicMaterial({ color: 0xf0c45a });
+  const mark = new THREE.Mesh(markGeo, markMat);
+  mark.position.set(-BASE/2 + i*baseSegment, 0.04, BASE/2 + 0.1);
+  measuresGroup.add(mark);
+}
+
+// 280 cubits along height = 7 marks every 40
+const heightMarks = 7;
+const heightSegment = HEIGHT / heightMarks;
+for (let i = 0; i <= heightMarks; i++) {
+  const markGeo = new THREE.BoxGeometry(0.04, 0.04, 0.08);
+  const markMat = new THREE.MeshBasicMaterial({ color: 0xff8b6b });
+  const mark = new THREE.Mesh(markGeo, markMat);
+  mark.position.set(-BASE/2 - 0.15, i*heightSegment, BASE/2);
+  measuresGroup.add(mark);
+}
+
+const cubitLabel1 = makeLabelSprite('440 coudées', '#f0c45a', 280, 36);
+cubitLabel1.scale.set(1.3, 0.4, 1);
+cubitLabel1.position.set(0, 0.5, BASE/2 + 0.6);
+measuresGroup.add(cubitLabel1);
+
+const cubitLabel2 = makeLabelSprite('280 coudées', '#ff8b6b', 280, 36);
+cubitLabel2.scale.set(1.3, 0.4, 1);
+cubitLabel2.position.set(-BASE/2 - 0.9, HEIGHT/2, BASE/2);
+measuresGroup.add(cubitLabel2);
+
+const sekedLabel = makeLabelSprite('seked 5½', '#6bcaff', 240, 40);
+sekedLabel.scale.set(1, 0.45, 1);
+sekedLabel.position.set(BASE/2 + 0.6, HEIGHT/3, BASE/2 + 0.3);
+measuresGroup.add(sekedLabel);
+
+// Cubit ruler illustration (floating ruler showing 7 palms)
+const rulerGroup = new THREE.Group();
+const rulerBase = new THREE.Mesh(
+  new THREE.BoxGeometry(1.05, 0.06, 0.15),
+  new THREE.MeshStandardMaterial({ color: 0xd4a747, metalness: 0.3, roughness: 0.5 })
+);
+rulerGroup.add(rulerBase);
+for (let i = 0; i <= 7; i++) {
+  const tick = new THREE.Mesh(
+    new THREE.BoxGeometry(0.01, 0.08, 0.15),
+    new THREE.MeshBasicMaterial({ color: 0x2a1f12 })
+  );
+  tick.position.x = -0.525 + i * 0.15;
+  rulerGroup.add(tick);
+}
+rulerGroup.position.set(BASE/2 + 1.2, 0.5, 0);
+const rulerLabel = makeLabelSprite('1 coudée = 7 palmes', '#f0c45a', 320, 36);
+rulerLabel.scale.set(1.5, 0.4, 1);
+rulerLabel.position.set(0, 0.35, 0);
+rulerGroup.add(rulerLabel);
+measuresGroup.add(rulerGroup);
+
+// ===== Rolling drum mode =====
+const rollingGroup = new THREE.Group();
+rollingGroup.visible = false;
+scene.add(rollingGroup);
+
+// Drum/wheel
+const drumRadius = HEIGHT / (2 * PI); // so circumference = HEIGHT
+const drumGeo = new THREE.CylinderGeometry(drumRadius, drumRadius, 0.2, 64);
+const drumMat = new THREE.MeshStandardMaterial({
+  color: 0xd4a747,
+  metalness: 0.6,
+  roughness: 0.3
+});
+const drum = new THREE.Mesh(drumGeo, drumMat);
+drum.rotation.z = PI/2;
+drum.position.set(-BASE/2 - 1, drumRadius, 0);
+drum.castShadow = true;
+rollingGroup.add(drum);
+
+// Mark on drum to visualize rotation
+const drumMarkGeo = new THREE.BoxGeometry(0.05, 0.22, 0.05);
+const drumMarkMat = new THREE.MeshBasicMaterial({ color: 0xff6b6b });
+const drumMark = new THREE.Mesh(drumMarkGeo, drumMarkMat);
+drumMark.position.set(0, 0, drumRadius - 0.02);
+drum.add(drumMark);
+
+// Path line on ground
+const pathPts = [
+  new THREE.Vector3(-BASE/2 - 1, 0.01, 0),
+  new THREE.Vector3(-BASE/2 - 1, 0.01, 0)
+];
+const pathGeo = new THREE.BufferGeometry().setFromPoints(pathPts);
+const pathMat = new THREE.LineBasicMaterial({ color: 0xff6b6b, linewidth: 3 });
+const pathLine = new THREE.Line(pathGeo, pathMat);
+rollingGroup.add(pathLine);
+
+// Vertical height indicator
+const heightIndicatorPts = [
+  new THREE.Vector3(BASE/2 + 1, 0, 0),
+  new THREE.Vector3(BASE/2 + 1, HEIGHT, 0)
+];
+const heightIndicator = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(heightIndicatorPts),
+  new THREE.LineDashedMaterial({ color: 0x6bcaff, dashSize: 0.15, gapSize: 0.1, linewidth: 2 })
+);
+heightIndicator.computeLineDistances();
+rollingGroup.add(heightIndicator);
+
+const drumLabel = makeLabelSprite('1 tour = h', '#f0c45a', 240, 40);
+drumLabel.scale.set(1, 0.45, 1);
+drumLabel.position.set(-BASE/2 - 1, drumRadius + 0.7, 0);
+rollingGroup.add(drumLabel);
+
+const rollingLabel = makeLabelSprite('π tours pour b/2', '#6bcaff', 280, 38);
+rollingLabel.scale.set(1.3, 0.4, 1);
+rollingLabel.position.set(0, -0.3, -BASE/2 - 0.5);
+rollingGroup.add(rollingLabel);
+
+// Counter sprite (updates)
+let rollCounter = null;
+function updateRollCounter(turns) {
+  if (rollCounter) rollingGroup.remove(rollCounter);
+  rollCounter = makeLabelSprite(`${turns.toFixed(2)} tours`, '#ff6b6b', 240, 40);
+  rollCounter.scale.set(1, 0.45, 1);
+  rollCounter.position.set(-BASE/2 - 1, drumRadius * 2 + 1.2, 0);
+  rollingGroup.add(rollCounter);
+}
+updateRollCounter(0);
+
+// ===== Stars mode (with sub-modes) =====
+const starsGroup = new THREE.Group();
+starsGroup.visible = false;
+scene.add(starsGroup);
+
+// Three sub-groups
+const cardinalsGroup = new THREE.Group();
+const shaftsGroup = new THREE.Group();
+const orionGizaGroup = new THREE.Group();
+starsGroup.add(cardinalsGroup, shaftsGroup, orionGizaGroup);
+
+// Dark sky dome (shared)
+const skyGeo = new THREE.SphereGeometry(30, 32, 16);
+const skyMat = new THREE.MeshBasicMaterial({
+  color: 0x050308,
+  side: THREE.BackSide
+});
+const sky = new THREE.Mesh(skyGeo, skyMat);
+starsGroup.add(sky);
+
+// Random background stars (shared)
+const starPositions = [];
+const starColors = [];
+for (let i = 0; i < 1200; i++) {
+  const theta = Math.random() * 2 * PI;
+  const phi = Math.acos(Math.random()); // upper hemisphere
+  const r = 25;
+  starPositions.push(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.cos(phi) + 1,
+    r * Math.sin(phi) * Math.sin(theta)
+  );
+  const c = 0.5 + Math.random() * 0.5;
+  starColors.push(c, c, c * (0.8 + Math.random() * 0.2));
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+starGeo.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+const starMat = new THREE.PointsMaterial({
+  size: 0.08,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.9
+});
+const stars = new THREE.Points(starGeo, starMat);
+starsGroup.add(stars);
+
+// Helper: makeStar with halo
+function makeStar(x, y, z, color, size) {
+  const geo = new THREE.SphereGeometry(size, 16, 16);
+  const mat = new THREE.MeshBasicMaterial({ color });
+  const star = new THREE.Mesh(geo, mat);
+  star.position.set(x, y, z);
+  const haloGeo = new THREE.SphereGeometry(size * 2.5, 16, 16);
+  const haloMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25 });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  star.add(halo);
+  return star;
+}
+
+// ============================================================
+// SUB-MODE A : CARDINAUX — alignement des faces aux points cardinaux
+// ============================================================
+
+// Big cardinal arrows on the ground
+function makeCardinalArrow(angle, label, color) {
+  const grp = new THREE.Group();
+  const len = BASE * 1.4;
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.04, len, 12),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  shaft.rotation.z = PI/2;
+  shaft.position.x = len/2;
+  grp.add(shaft);
+  // arrow head
+  const head = new THREE.Mesh(
+    new THREE.ConeGeometry(0.15, 0.4, 16),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  head.rotation.z = -PI/2;
+  head.position.x = len + 0.2;
+  grp.add(head);
+  // Label
+  const lbl = makeLabelSprite(label, '#' + color.toString(16).padStart(6, '0'), 120, 64);
+  lbl.scale.set(0.7, 0.7, 1);
+  lbl.position.set(len + 0.9, 0.1, 0);
+  grp.add(lbl);
+
+  grp.rotation.y = angle;
+  grp.position.y = 0.05;
+  return grp;
+}
+
+cardinalsGroup.add(makeCardinalArrow(0, 'E', 0xff8b6b));     // East: +X
+cardinalsGroup.add(makeCardinalArrow(PI, 'O', 0xff8b6b));    // West
+cardinalsGroup.add(makeCardinalArrow(-PI/2, 'N', 0x6bcaff)); // North: -Z
+cardinalsGroup.add(makeCardinalArrow(PI/2, 'S', 0xf0c45a));  // South: +Z
+
+// Highlight pyramid faces with colored translucent overlays
+// The pyramid is rotated PI/4, so faces align with N/S/E/O
+function makeFaceOverlay(direction, color) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-BASE/2, 0);
+  shape.lineTo(BASE/2, 0);
+  shape.lineTo(0, HEIGHT);
+  shape.lineTo(-BASE/2, 0);
+  const geo = new THREE.ShapeGeometry(shape);
+  const mat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.35,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+
+  // direction: 'N', 'S', 'E', 'O'
+  // The pyramid is centered at (0, HEIGHT/2, 0) and rotated PI/4 around Y
+  // Its 4 faces point along +X, -X, +Z, -Z (after rotation)
+  // We place a triangle outside slightly, facing outward
+  const offset = 0.02;
+  if (direction === 'S') { // +Z face
+    mesh.position.set(0, 0, BASE/2 + offset);
+  } else if (direction === 'N') { // -Z face
+    mesh.position.set(0, 0, -BASE/2 - offset);
+    mesh.rotation.y = PI;
+  } else if (direction === 'E') { // +X face
+    mesh.position.set(BASE/2 + offset, 0, 0);
+    mesh.rotation.y = PI/2;
+  } else if (direction === 'O') { // -X face
+    mesh.position.set(-BASE/2 - offset, 0, 0);
+    mesh.rotation.y = -PI/2;
+  }
+  return mesh;
+}
+
+cardinalsGroup.add(makeFaceOverlay('N', 0x6bcaff));
+cardinalsGroup.add(makeFaceOverlay('S', 0xf0c45a));
+cardinalsGroup.add(makeFaceOverlay('E', 0xff8b6b));
+cardinalsGroup.add(makeFaceOverlay('O', 0xff8b6b));
+
+// "True North" indicator with the 3'6" deviation
+const trueNorthLen = BASE * 1.4;
+const trueNorthPts = [
+  new THREE.Vector3(0, 0.06, 0),
+  new THREE.Vector3(0, 0.06, -trueNorthLen)
+];
+const trueNorthLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(trueNorthPts),
+  new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.1, gapSize: 0.06, transparent: true, opacity: 0.8 })
+);
+trueNorthLine.computeLineDistances();
+cardinalsGroup.add(trueNorthLine);
+
+const deviationLabel = makeLabelSprite('Écart au N vrai : 3′6″', '#ffffff', 360, 36);
+deviationLabel.scale.set(1.7, 0.4, 1);
+deviationLabel.position.set(0, 0.5, -trueNorthLen - 0.8);
+cardinalsGroup.add(deviationLabel);
+
+// Compass rose at base of pyramid
+const roseRadius = BASE/2 + 0.4;
+const roseGeo = new THREE.RingGeometry(roseRadius, roseRadius + 0.04, 64);
+const roseMat = new THREE.MeshBasicMaterial({ color: 0xd4a747, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+const rose = new THREE.Mesh(roseGeo, roseMat);
+rose.rotation.x = -PI/2;
+rose.position.y = 0.04;
+cardinalsGroup.add(rose);
+
+// ============================================================
+// ============================================================
+// SUB-MODE B : CONDUITS INTERNES — les 4 conduits + chambres
+// ============================================================
+
+// Real Khufu chamber positions:
+// - King's chamber: ~43m up, slightly off-center (south of center)
+// - Queen's chamber: ~21m up, on the central axis
+// King's chamber dimensions: ~10.5m × 5.2m × 5.8m → scaled
+// Queen's chamber: ~5.7m × 5.2m × 6.2m
+const kingY = HEIGHT * 0.29;   // ~43m
+const queenY = HEIGHT * 0.143; // ~21m
+
+// Chamber dimensions (scaled to model units, 1 unit = 50m)
+// King: 10.5m × 5.8m × 5.2m → 0.21 × 0.116 × 0.104
+// Queen: 5.7m × 6.2m × 5.2m → 0.114 × 0.124 × 0.104
+const kingDim = { w: 0.32, h: 0.18, d: 0.20 };  // a bit bigger for visibility
+const queenDim = { w: 0.22, h: 0.18, d: 0.18 };
+
+// Chambers as transparent boxes with wireframe
+function makeChamber(y, dim, label, color, zOffset = 0) {
+  const grp = new THREE.Group();
+  const geo = new THREE.BoxGeometry(dim.w, dim.h, dim.d);
+
+  // Filled semi-transparent
+  const fillMat = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.18,
+    side: THREE.DoubleSide
+  });
+  const fill = new THREE.Mesh(geo, fillMat);
+  grp.add(fill);
+
+  // Wireframe edges
+  const edges = new THREE.EdgesGeometry(geo);
+  const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color, linewidth: 2 }));
+  grp.add(wire);
+
+  // Label floating to the side
+  const lbl = makeLabelSprite(label, '#' + color.toString(16).padStart(6, '0'), 320, 36);
+  lbl.scale.set(1.5, 0.4, 1);
+  lbl.position.set(dim.w/2 + 0.7, 0, 0);
+  grp.add(lbl);
+
+  // Position: King is slightly south of center (positive Z in our convention)
+  grp.position.set(0, y, zOffset);
+  // Store metadata for shaft connection
+  grp.userData = { dim, y, zOffset };
+  return grp;
+}
+
+const kingChamber = makeChamber(kingY, kingDim, 'Chambre du Roi', 0xf0c45a, 0.05);
+const queenChamber = makeChamber(queenY, queenDim, 'Chambre de la Reine', 0xff8b6b, 0);
+shaftsGroup.add(kingChamber);
+shaftsGroup.add(queenChamber);
+
+// ===== Realistic quadrilateral shaft =====
+// A shaft is a rectangular tube (BoxGeometry stretched along its length),
+// starting at the N or S wall of the chamber and exiting the pyramid face.
+// Real shaft cross-section: ~20cm × 20cm → in model units: ~0.004 × 0.004
+// We'll make them visually larger (0.05 × 0.05) for visibility.
+
+function makeShaft(chamber, angleDeg, direction, color, label) {
+  const grp = new THREE.Group();
+  const angleRad = angleDeg * PI / 180;
+  const dirZ = direction === 'N' ? -1 : 1;
+
+  const { dim, y: chamberY, zOffset } = chamber.userData;
+
+  // Start point: exit point of the chamber wall (N or S face)
+  const startZ = zOffset + dirZ * dim.d / 2;
+  const startY = chamberY; // center of chamber wall vertically
+
+  // Compute where the shaft exits the pyramid face
+  // Pyramid face equation: at height y, half-width = (BASE/2) * (1 - y/HEIGHT)
+  // Shaft direction: (0, sin(α), dirZ*cos(α))
+  // Parametric: y(t) = startY + t*sin(α), z(t) = startZ + t*dirZ*cos(α)
+  // Exit when |z(t)| = (BASE/2) * (1 - y(t)/HEIGHT)
+  // dirZ*z(t) = (BASE/2)*(1 - y(t)/HEIGHT)   (since shaft goes outward in dirZ)
+  // dirZ*(startZ + t*dirZ*cos(α)) = (BASE/2)*(1 - (startY + t*sin(α))/HEIGHT)
+  // dirZ*startZ + t*cos(α) = (BASE/2) - (BASE/2)*startY/HEIGHT - t*sin(α)*(BASE/2)/HEIGHT
+  // t*[cos(α) + sin(α)*(BASE/2)/HEIGHT] = (BASE/2)*(1 - startY/HEIGHT) - dirZ*startZ
+  const numerator = (BASE/2)*(1 - startY/HEIGHT) - dirZ*startZ;
+  const denominator = Math.cos(angleRad) + Math.sin(angleRad)*(BASE/2)/HEIGHT;
+  const shaftLen = numerator / denominator;
+
+  // Start and end vectors
+  const start = new THREE.Vector3(0, startY, startZ);
+  const end = new THREE.Vector3(
+    0,
+    startY + shaftLen * Math.sin(angleRad),
+    startZ + dirZ * shaftLen * Math.cos(angleRad)
+  );
+
+  // ===== Build the quadrilateral tube =====
+  // Use a thin box scaled along the shaft's direction
+  const tubeWidth = 0.06;  // square cross-section
+  const tubeHeight = 0.06;
+  const tubeGeo = new THREE.BoxGeometry(tubeWidth, tubeHeight, shaftLen);
+
+  // Apply the actual angle - we want the tube to go from start to end
+  const tubeMat = new THREE.MeshStandardMaterial({
+    color,
+    metalness: 0.4,
+    roughness: 0.3,
+    emissive: color,
+    emissiveIntensity: 0.3
+  });
+  const tube = new THREE.Mesh(tubeGeo, tubeMat);
+
+  // Position tube at midpoint between start and end
+  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  tube.position.copy(mid);
+
+  // Orient tube: align its +Z axis (length axis) with the shaft direction
+  const dir = new THREE.Vector3().subVectors(end, start).normalize();
+  const quat = new THREE.Quaternion();
+  quat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+  tube.quaternion.copy(quat);
+
+  grp.add(tube);
+
+  // Wireframe outline of the tube for clarity
+  const tubeEdges = new THREE.EdgesGeometry(tubeGeo);
+  const tubeWire = new THREE.LineSegments(tubeEdges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 }));
+  tubeWire.position.copy(mid);
+  tubeWire.quaternion.copy(quat);
+  grp.add(tubeWire);
+
+  // ===== Extension beam to the star (dashed line continuing outside) =====
+  const beamLen = 14;
+  const beamEnd = new THREE.Vector3(
+    end.x,
+    end.y + beamLen * Math.sin(angleRad),
+    end.z + dirZ * beamLen * Math.cos(angleRad)
+  );
+
+  const beamPts = [end, beamEnd];
+  const beamGeo = new THREE.BufferGeometry().setFromPoints(beamPts);
+  const beamMat = new THREE.LineDashedMaterial({ color, dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.75 });
+  const beam = new THREE.Line(beamGeo, beamMat);
+  beam.computeLineDistances();
+  grp.add(beam);
+
+  // Target star
+  const targetStar = makeStar(beamEnd.x, beamEnd.y, beamEnd.z, color, 0.22);
+  grp.add(targetStar);
+
+  // Target label
+  const tlbl = makeLabelSprite(label, '#' + color.toString(16).padStart(6, '0'), 360, 32);
+  tlbl.scale.set(1.7, 0.4, 1);
+  tlbl.position.copy(beamEnd);
+  tlbl.position.y += 0.7;
+  grp.add(tlbl);
+
+  // Angle label near the start (on the chamber side)
+  const angleLbl = makeLabelSprite(angleDeg.toFixed(1) + '°', '#' + color.toString(16).padStart(6, '0'), 140, 36);
+  angleLbl.scale.set(0.7, 0.4, 1);
+  const labelPos = new THREE.Vector3().lerpVectors(start, end, 0.25);
+  labelPos.x += 0.35;
+  angleLbl.position.copy(labelPos);
+  grp.add(angleLbl);
+
+  return grp;
+}
+
+// King's chamber shafts
+shaftsGroup.add(makeShaft(kingChamber, 32.6, 'N', 0xfff8d4, 'Thuban (α Dra)'));
+shaftsGroup.add(makeShaft(kingChamber, 45, 'S', 0xaaccff, 'Alnitak (ζ Ori)'));
+// Queen's chamber shafts
+shaftsGroup.add(makeShaft(queenChamber, 39, 'N', 0xffe0aa, 'Kochab (β UMi)'));
+shaftsGroup.add(makeShaft(queenChamber, 39.6, 'S', 0xfff0e0, 'Sirius (α CMa)'));
+
+// Cardinal labels on ground
+const shaftN = makeLabelSprite('N', '#6bcaff', 100, 56);
+shaftN.scale.set(0.5, 0.5, 1);
+shaftN.position.set(0, 0.3, -BASE/2 - 0.8);
+shaftsGroup.add(shaftN);
+
+const shaftS = makeLabelSprite('S', '#f0c45a', 100, 56);
+shaftS.scale.set(0.5, 0.5, 1);
+shaftS.position.set(0, 0.3, BASE/2 + 0.8);
+shaftsGroup.add(shaftS);
+
+// ============================================================
+// SUB-MODE C : LES 3 PYRAMIDES + CEINTURE D'ORION
+// Realistic relative scale and positions (1 unit = 50 m)
+// ============================================================
+
+// Real measurements (UTM-derived, approximate):
+// - Kheops (Khufu)    : base 230.4 m, height 146.6 m, position (0, 0)
+// - Khephren (Khafre) : base 215.5 m, height 143.5 m, ~160 m W, ~340 m S of Kheops
+// - Mykerinos (Menk.) : base 108.5 m, height  65.0 m, ~360 m W, ~610 m S of Kheops
+//   (Menkaure is offset from the Kheops-Khephren line — central to Bauval's theory)
+//
+// Convention in our scene: -Z = North, +Z = South, +X = East, -X = West
+// Scale: 1 unit = 50 m
+
+const SCALE = 1 / 50; // m to units
+
+const gizaPositions = [
+  {
+    name: 'Khéops',
+    x: 0,
+    z: 0,
+    b: 230.4 * SCALE,      // 4.608
+    h: 146.6 * SCALE,      // 2.932
+    color: 0xf0c45a
+  },
+  {
+    name: 'Khéphren',
+    x: -160 * SCALE,       // -3.2 (west)
+    z:  340 * SCALE,       //  6.8 (south)
+    b: 215.5 * SCALE,      // 4.31
+    h: 143.5 * SCALE,      // 2.87
+    color: 0xd4a747
+  },
+  {
+    name: 'Mykérinos',
+    x: -360 * SCALE,       // -7.2 (west)
+    z:  610 * SCALE,       // 12.2 (south)
+    b: 108.5 * SCALE,      // 2.17
+    h:  65.0 * SCALE,      // 1.30
+    color: 0xa8794d
+  }
+];
+
+// Sand-colored desert plateau under the 3 pyramids
+const plateauGeo = new THREE.PlaneGeometry(28, 28);
+const plateauMat = new THREE.MeshStandardMaterial({
+  color: 0x4a3520,
+  roughness: 0.95,
+  metalness: 0.0
+});
+const plateau = new THREE.Mesh(plateauGeo, plateauMat);
+plateau.rotation.x = -PI/2;
+plateau.position.set(-3.5, 0.01, 6);
+plateau.receiveShadow = true;
+orionGizaGroup.add(plateau);
+
+// Mini pyramid factory — more realistic
+function makeMiniPyramid(p, isMain = false) {
+  const grp = new THREE.Group();
+  const geo = new THREE.ConeGeometry(p.b / Math.sqrt(2), p.h, 4);
+  const mat = new THREE.MeshStandardMaterial({
+    color: p.color,
+    roughness: 0.85,
+    metalness: 0.05,
+    flatShading: true
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = p.h / 2;
+  mesh.rotation.y = PI / 4;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  grp.add(mesh);
+
+  // Gold-tinted edges
+  const edges = new THREE.EdgesGeometry(geo);
+  const wireMat = new THREE.LineBasicMaterial({
+    color: 0xf0c45a,
+    transparent: true,
+    opacity: 0.6
+  });
+  const wire = new THREE.LineSegments(edges, wireMat);
+  wire.position.y = p.h / 2;
+  wire.rotation.y = PI / 4;
+  grp.add(wire);
+
+  // Apex marker — small bright sphere
+  const apexGeo = new THREE.SphereGeometry(0.08, 16, 16);
+  const apexMat = new THREE.MeshBasicMaterial({ color: 0xffe680 });
+  const apex = new THREE.Mesh(apexGeo, apexMat);
+  apex.position.y = p.h + 0.04;
+  grp.add(apex);
+  // Apex glow halo
+  const apexHalo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffe680, transparent: true, opacity: 0.25 })
+  );
+  apexHalo.position.y = p.h + 0.04;
+  grp.add(apexHalo);
+
+  // Label on the ground next to the pyramid
+  const lbl = makeLabelSprite(p.name, '#f0c45a', 280, 40);
+  lbl.scale.set(1.3, 0.45, 1);
+  lbl.position.set(0, 0.25, p.b / 2 + 0.5);
+  grp.add(lbl);
+
+  // Dimensions caption
+  const dimText = `${(p.b/SCALE).toFixed(0)}m × ${(p.h/SCALE).toFixed(0)}m`;
+  const dimLbl = makeLabelSprite(dimText, '#d4a747', 260, 28);
+  dimLbl.scale.set(1.1, 0.3, 1);
+  dimLbl.position.set(0, -0.05, p.b / 2 + 0.5);
+  grp.add(dimLbl);
+
+  grp.position.set(p.x, 0, p.z);
+  return grp;
+}
+
+gizaPositions.forEach(p => {
+  orionGizaGroup.add(makeMiniPyramid(p));
+});
+
+// ===== Compass rose in the bottom-left for reference =====
+const compassPos = new THREE.Vector3(-9, 0.05, 0);
+function makeCompassArrow(label, color, dx, dz) {
+  const grp = new THREE.Group();
+  const len = 1.0;
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, len, 8),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  shaft.rotation.z = PI / 2;
+  shaft.position.x = len / 2;
+  grp.add(shaft);
+  const head = new THREE.Mesh(
+    new THREE.ConeGeometry(0.1, 0.25, 12),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  head.rotation.z = -PI / 2;
+  head.position.x = len + 0.13;
+  grp.add(head);
+  const lbl = makeLabelSprite(label, '#' + color.toString(16).padStart(6, '0'), 100, 56);
+  lbl.scale.set(0.4, 0.4, 1);
+  lbl.position.set(len + 0.5, 0.1, 0);
+  grp.add(lbl);
+  grp.rotation.y = Math.atan2(-dz, dx);
+  grp.position.copy(compassPos);
+  return grp;
+}
+orionGizaGroup.add(makeCompassArrow('N', 0x6bcaff, 0, -1));
+orionGizaGroup.add(makeCompassArrow('S', 0xf0c45a, 0,  1));
+orionGizaGroup.add(makeCompassArrow('E', 0xff8b6b, 1,  0));
+orionGizaGroup.add(makeCompassArrow('O', 0xff8b6b, -1, 0));
+
+// ===== Orion's belt in the sky, mirroring the pyramid layout =====
+// In the real correlation: the belt is "above" the desert.
+// The angular separation of Alnitak-Alnilam-Mintaka matches Kheops-Khephren-Mykerinos
+// when viewed from a specific angle.
+// We place the 3 stars directly above the apexes, with a slight pivot to show how
+// Mintaka offsets from the line — same as Mykerinos.
+
+const skyHeight = 8;
+const orionStars = gizaPositions.map((p, i) => {
+  // Place each star directly above its corresponding pyramid apex
+  const star = makeStar(p.x, skyHeight + p.h, p.z, 0xccddff, 0.25);
+  orionGizaGroup.add(star);
+  return star;
+});
+
+// Names of belt stars
+const orionNames = ['Alnitak', 'Alnilam', 'Mintaka'];
+orionStars.forEach((s, i) => {
+  const lbl = makeLabelSprite(orionNames[i], '#aaccff', 260, 36);
+  lbl.scale.set(1.3, 0.42, 1);
+  lbl.position.set(s.position.x + 0.7, s.position.y + 0.4, s.position.z);
+  orionGizaGroup.add(lbl);
+});
+
+// Connecting belt line in the sky
+const beltPts = orionStars.map(s => s.position);
+const beltLineGeo = new THREE.BufferGeometry().setFromPoints(beltPts);
+const beltLine = new THREE.Line(
+  beltLineGeo,
+  new THREE.LineBasicMaterial({
+    color: 0xaaccff,
+    transparent: true,
+    opacity: 0.85
+  })
+);
+orionGizaGroup.add(beltLine);
+
+// Ground line connecting the 3 apexes (the visual "echo" of the belt)
+const groundLinePts = gizaPositions.map(p => new THREE.Vector3(p.x, p.h + 0.04, p.z));
+const groundLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(groundLinePts),
+  new THREE.LineBasicMaterial({
+    color: 0xf0c45a,
+    transparent: true,
+    opacity: 0.9
+  })
+);
+orionGizaGroup.add(groundLine);
+
+// ===== Projection lines (the key didactic element) =====
+// Vertical bright dashed lines from each star down to its pyramid apex
+gizaPositions.forEach((p, i) => {
+  const star = orionStars[i];
+  // Vertical projection
+  const projPts = [
+    star.position.clone(),
+    new THREE.Vector3(p.x, p.h + 0.04, p.z)
+  ];
+  const proj = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(projPts),
+    new THREE.LineDashedMaterial({
+      color: 0xaaccff,
+      dashSize: 0.3,
+      gapSize: 0.2,
+      transparent: true,
+      opacity: 0.7
+    })
+  );
+  proj.computeLineDistances();
+  orionGizaGroup.add(proj);
+
+  // Small ring on the ground at the foot of the projection (highlight)
+  const ringGeo = new THREE.RingGeometry(p.b/2 + 0.1, p.b/2 + 0.16, 32);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0xaaccff,
+    transparent: true,
+    opacity: 0.4,
+    side: THREE.DoubleSide
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -PI / 2;
+  ring.position.set(p.x, 0.03, p.z);
+  orionGizaGroup.add(ring);
+});
+
+// ===== The Nile (eastern, mirror of the Milky Way) =====
+const nileGeo = new THREE.PlaneGeometry(1.4, 22);
+const nileMat = new THREE.MeshStandardMaterial({
+  color: 0x3a5a7a,
+  roughness: 0.4,
+  metalness: 0.6,
+  transparent: true,
+  opacity: 0.55
+});
+const nile = new THREE.Mesh(nileGeo, nileMat);
+nile.rotation.x = -PI / 2;
+nile.position.set(6, 0.02, 6);
+orionGizaGroup.add(nile);
+
+const nileLabel = makeLabelSprite('Le Nil →', '#6b8caa', 220, 36);
+nileLabel.scale.set(1, 0.4, 1);
+nileLabel.position.set(6, 0.4, -3);
+orionGizaGroup.add(nileLabel);
+
+// ===== Stylized Milky Way band high in the sky, eastern side =====
+const mwGeo = new THREE.PlaneGeometry(3.5, 22);
+const mwMat = new THREE.MeshBasicMaterial({
+  color: 0xaaccff,
+  transparent: true,
+  opacity: 0.1,
+  side: THREE.DoubleSide
+});
+const mw = new THREE.Mesh(mwGeo, mwMat);
+mw.position.set(6, skyHeight + 1.5, 6);
+mw.rotation.x = -PI / 2 + 0.15;
+orionGizaGroup.add(mw);
+
+const mwLabel = makeLabelSprite('Voie lactée', '#aaccff', 260, 36);
+mwLabel.scale.set(1.2, 0.4, 1);
+mwLabel.position.set(6, skyHeight + 2.2, -3);
+orionGizaGroup.add(mwLabel);
+
+// ===== Mirror arrows : connect each star→pyramid pairing visually =====
+function makeMirrorArrow(p, i) {
+  // A subtle text label showing the mapping
+  const mappings = [
+    'Alnitak ↔ Khéops',
+    'Alnilam ↔ Khéphren',
+    'Mintaka ↔ Mykérinos'
+  ];
+  const lbl = makeLabelSprite(mappings[i], '#aaccff', 360, 32);
+  lbl.scale.set(1.7, 0.35, 1);
+  // Place midway between the star and the pyramid, offset to the east
+  lbl.position.set(p.x + 1.5, (skyHeight + p.h)/2 + 0.5, p.z);
+  return lbl;
+}
+gizaPositions.forEach((p, i) => orionGizaGroup.add(makeMirrorArrow(p, i)));
+
+// ===== Title floating in the sky =====
+const correlationLabel = makeLabelSprite('Corrélation d\'Orion · Bauval 1994', '#f0c45a', 480, 36);
+correlationLabel.scale.set(2.2, 0.42, 1);
+correlationLabel.position.set(-3.5, skyHeight + 3.5, -3);
+orionGizaGroup.add(correlationLabel);
+
+// ===== Mode management =====
+const modes = {
+  geometry: {
+    title: 'Géométrie sacrée',
+    html: `<p>Les proportions de la pyramide font émerger π et φ.</p>
+           <div class="formula">P / (2h) = 921,6 / 293,2 ≈ π</div>
+           <p><strong>↓ Animation π</strong> · le curseur en bas fait parcourir le périmètre (rose) tout en traçant simultanément :</p>
+           <p>• <span style="color:#6bcaff">un cercle au sol</span> de rayon <em>h</em> (sa circonférence = 2πh = P)<br>• <span style="color:#ffaa3d">un cercle vertical</span> de rayon <em>h</em> (son diamètre = 2h, hauteur empilée)</p>
+           <p>Quand le curseur termine le tour de la pyramide, les deux cercles se ferment exactement — c'est la signature de π.</p>
+           <div class="formula">apothème / (b/2) ≈ φ ≈ 1,618</div>
+           <p>L'angle des faces vaut 51°50′, induit par un <em>seked</em> de 5½ palmes par coudée.</p>`,
+    show: [geometryGroup],
+    hide: [measuresGroup, rollingGroup, starsGroup]
+  },
+  measures: {
+    title: 'Mesures égyptiennes',
+    html: `<p>Les Égyptiens utilisaient la <em>coudée royale</em> (≈52,4 cm), divisée en 7 palmes, elles-mêmes en 4 doigts.</p>
+           <div class="formula">base = 440 coudées · hauteur = 280 coudées</div>
+           <p>Le rapport b/h = 11/7 est d'une simplicité remarquable. Le <em>seked</em> (pente) vaut 5½ palmes par coudée — un nombre rationnel qui produit naturellement π.</p>
+           <div class="formula">seked = 5,5/7 = 11/14 → 14/11 ≈ 4/π</div>`,
+    show: [measuresGroup],
+    hide: [geometryGroup, rollingGroup, starsGroup]
+  },
+  rolling: {
+    title: 'Le tambour & π',
+    html: `<p>Théorie de la mesure par tambour : si la hauteur d'une coudée correspond au diamètre d'un tambour, et si la base est mesurée en faisant rouler ce tambour…</p>
+           <div class="formula">1 tour = circonférence = π × diamètre</div>
+           <p>Alors π apparaît mécaniquement dans le rapport périmètre/hauteur — sans aucune intention mathématique. Fais glisser le curseur Temps pour voir le tambour rouler.</p>`,
+    show: [rollingGroup],
+    hide: [geometryGroup, measuresGroup, starsGroup],
+    timeControl: true
+  },
+  stars: {
+    title: 'Alignement stellaire',
+    html: `<p>Trois alignements remarquables — sélectionne une sous-vue ci-dessous :</p>
+           <div class="formula" style="cursor:pointer" data-sub="cardinals">▸ A · Faces & points cardinaux</div>
+           <div class="formula" style="cursor:pointer" data-sub="shafts">▸ B · Conduits internes & étoiles</div>
+           <div class="formula" style="cursor:pointer" data-sub="giza">▸ C · Les 3 pyramides & Orion</div>
+           <p style="opacity:0.7;font-size:0.85rem;margin-top:0.6rem">Astuce : tu peux aussi utiliser les boutons en bas de l'écran.</p>`,
+    show: [starsGroup],
+    hide: [geometryGroup, measuresGroup, rollingGroup],
+    skyMode: true,
+    subMode: 'cardinals'
+  }
+};
+
+// Stellar sub-mode info content
+const starSubModes = {
+  cardinals: {
+    title: 'A · Alignement aux points cardinaux',
+    html: `<p>Les quatre faces de la pyramide pointent vers le <strong>Nord, Sud, Est, Ouest</strong> géographiques — pas magnétiques.</p>
+           <div class="formula">Écart au Nord vrai : 3′6″ ≈ 0,06°</div>
+           <p>Une précision stupéfiante pour 2560 av. J.-C., obtenue sans boussole. Méthodes probables :</p>
+           <p>• Observation de l'<em>étoile polaire</em> de l'époque (Thuban)<br>• Gnomon : ombre minimale à midi solaire<br>• Méthode des étoiles indicatrices encadrant le pôle</p>
+           <p style="opacity:0.7;font-size:0.85rem">La ligne pointillée blanche au sol indique le Nord vrai. Les flèches colorées montrent les 4 directions cardinales alignées avec les faces.</p>`,
+    cameraTarget: [8, 6, 8],
+    controlsTarget: [0, HEIGHT/2, 0],
+    showPyramid: true
+  },
+  shafts: {
+    title: 'B · Les conduits internes',
+    html: `<p>Quatre conduits étroits (~20×20 cm) traversent la pyramide depuis les deux chambres royales.</p>
+           <p><strong>Chambre du Roi</strong> (≈43 m) :</p>
+           <div class="formula">Conduit Nord (32,6°) → Thuban (α Dra)<br>Conduit Sud (45°) → Alnitak (ζ Ori, ceinture d'Orion)</div>
+           <p><strong>Chambre de la Reine</strong> (≈21 m) :</p>
+           <div class="formula">Conduit Nord (39°) → Kochab (β UMi)<br>Conduit Sud (39,6°) → Sirius (α CMa, Isis)</div>
+           <p>Ces alignements correspondent au ciel de ≈2500 av. J.-C. — preuve d'une intention astronomique.</p>
+           <p style="opacity:0.7;font-size:0.85rem">Réduis l'opacité de la pyramide pour mieux voir les conduits et chambres.</p>`,
+    cameraTarget: [9, 3, 0],
+    controlsTarget: [0, HEIGHT/2, 0],
+    showPyramid: true,
+    forceOpacity: 0.2
+  },
+  giza: {
+    title: 'C · Les 3 pyramides & Orion',
+    html: `<p>Théorie de la <strong>corrélation d'Orion</strong> (Robert Bauval, 1994).</p>
+           <p>Les trois pyramides de Gizeh reproduiraient au sol la ceinture d'Orion :</p>
+           <div class="formula">Alnitak → Khéops (146 m)<br>Alnilam → Khéphren (143 m)<br>Mintaka → Mykérinos (65 m)</div>
+           <p>Le décalage de Mykérinos par rapport à la diagonale Khéops-Khéphren correspondrait au décalage de Mintaka dans la ceinture. Le Nil jouerait le rôle de la Voie lactée à l'est.</p>
+           <p><strong>Échelle réelle</strong> : Khéops-Khéphren ≈ 480 m, Khéphren-Mykérinos ≈ 360 m. La taille relative des pyramides est respectée.</p>
+           <p><strong>Critiques</strong> : les angles ne correspondent pas parfaitement, et les 3 pyramides ont été construites par 3 pharaons successifs sur ~75 ans, ce qui rend une planification commune improbable.</p>`,
+    cameraTarget: [10, 11, -8],
+    controlsTarget: [-3.5, 1, 6],
+    showPyramid: false
+  }
+};
+
+let currentMode = 'geometry';
+let currentSubMode = 'cardinals';
+let isSkyMode = false;
+let savedOpacity = 0.65;
+
+function setMode(mode) {
+  currentMode = mode;
+  const m = modes[mode];
+
+  // Show/hide groups
+  m.show.forEach(g => g.visible = true);
+  m.hide.forEach(g => g.visible = false);
+
+  // Sky mode background
+  isSkyMode = !!m.skyMode;
+  if (isSkyMode) {
+    scene.fog.density = 0.005;
+    ambient.intensity = 0.2;
+    keyLight.intensity = 0.4;
+  } else {
+    scene.fog.density = 0.025;
+    ambient.intensity = 0.6;
+    keyLight.intensity = 1.5;
+  }
+
+  // Time control visibility
+  document.getElementById('time-ctrl').style.display = m.timeControl ? 'flex' : 'none';
+
+  // Pi animation control visibility (geometry mode only)
+  document.getElementById('pi-ctrl').style.display = (mode === 'geometry') ? 'flex' : 'none';
+
+  // Update buttons
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+
+  // Stellar sub-mode selector
+  const subSelector = document.getElementById('sub-modes');
+  if (mode === 'stars') {
+    subSelector.style.display = 'flex';
+    setStarSubMode(currentSubMode);
+  } else {
+    subSelector.style.display = 'none';
+    // restore pyramid visibility & opacity if leaving stars
+    pyramidGroup.visible = true;
+    pyramidMat.opacity = savedOpacity;
+    document.getElementById('opacity').value = Math.round(savedOpacity * 100);
+    // Update info panel for non-stellar modes
+    const info = document.getElementById('info-body');
+    info.innerHTML = `<h2>${m.title}</h2>${m.html}`;
+  }
+}
+
+function setStarSubMode(sub) {
+  currentSubMode = sub;
+  const s = starSubModes[sub];
+
+  // Show only the relevant sub-group
+  cardinalsGroup.visible = (sub === 'cardinals');
+  shaftsGroup.visible = (sub === 'shafts');
+  orionGizaGroup.visible = (sub === 'giza');
+
+  // Show/hide main pyramid
+  pyramidGroup.visible = s.showPyramid;
+
+  // Adjust opacity for shafts view (so we can see inside)
+  if (s.forceOpacity !== undefined) {
+    pyramidMat.opacity = s.forceOpacity;
+    document.getElementById('opacity').value = Math.round(s.forceOpacity * 100);
+  }
+
+  // Update info panel
+  const info = document.getElementById('info-body');
+  info.innerHTML = `<h2>${s.title}</h2>${s.html}`;
+
+  // Update sub-mode buttons
+  document.querySelectorAll('.sub-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.sub === sub);
+  });
+
+  // Smooth camera movement (position + orbit target)
+  if (s.cameraTarget) {
+    const target = s.controlsTarget || [0, HEIGHT/2, 0];
+    animateCamera(s.cameraTarget, target);
+  }
+}
+
+// Smooth camera + target transition
+function animateCamera(camTarget, ctrlTarget) {
+  const startPos = camera.position.clone();
+  const endPos = new THREE.Vector3(...camTarget);
+  const startCtrl = controls.target.clone();
+  const endCtrl = new THREE.Vector3(...ctrlTarget);
+  const duration = 900;
+  const startTime = performance.now();
+  function step() {
+    const t = Math.min(1, (performance.now() - startTime) / duration);
+    const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    camera.position.lerpVectors(startPos, endPos, e);
+    controls.target.lerpVectors(startCtrl, endCtrl, e);
+    controls.update();
+    if (t < 1) requestAnimationFrame(step);
+  }
+  step();
+}
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => setMode(btn.dataset.mode));
+});
+
+// ===== Controls =====
+let autoRotate = true;
+document.getElementById('rotate-toggle').addEventListener('click', (e) => {
+  autoRotate = !autoRotate;
+  controls.autoRotate = autoRotate;
+  e.target.textContent = autoRotate ? '⟲ AUTO' : '⏸ STOP';
+});
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+
+document.getElementById('opacity').addEventListener('input', (e) => {
+  const val = e.target.value / 100;
+  pyramidMat.opacity = val;
+  // Save user choice unless we're inside the shafts sub-mode
+  if (!(currentMode === 'stars' && currentSubMode === 'shafts')) {
+    savedOpacity = val;
+  }
+});
+
+// Sub-mode buttons (stellar)
+document.querySelectorAll('.sub-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => setStarSubMode(btn.dataset.sub));
+});
+
+// Click-to-jump on the sub-mode prompts inside the info panel
+document.addEventListener('click', (e) => {
+  const sub = e.target.closest('[data-sub]');
+  if (sub && currentMode === 'stars') {
+    setStarSubMode(sub.dataset.sub);
+  }
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  camera.position.set(8, 4, 8);
+  controls.target.set(0, HEIGHT/2, 0);
+  controls.update();
+});
+
+// Rolling animation
+const timeSlider = document.getElementById('time-slider');
+let rollProgress = 0;
+timeSlider.addEventListener('input', (e) => {
+  rollProgress = e.target.value / 100;
+  updateRolling();
+});
+
+function updateRolling() {
+  // π full rotations to cover b/2 distance
+  const maxTurns = PI;
+  const turns = rollProgress * maxTurns;
+  const distance = turns * 2 * PI * drumRadius; // turns * circumference
+
+  // Move drum along z axis
+  drum.position.z = -distance/2; // start centered, roll along z
+  drum.rotation.x = -turns * 2 * PI;
+
+  // Path line
+  pathLine.geometry.setFromPoints([
+    new THREE.Vector3(-BASE/2 - 1, 0.01, 0),
+    new THREE.Vector3(-BASE/2 - 1, 0.01, -distance)
+  ]);
+
+  updateRollCounter(turns);
+}
+
+// ===== Pi perimeter animation =====
+const piSlider = document.getElementById('pi-slider');
+const piPlayBtn = document.getElementById('pi-play');
+let piAutoPlay = false;
+let piAutoStart = 0;
+let piAutoStartProgress = 0;
+
+piSlider.addEventListener('input', (e) => {
+  const progress = parseInt(e.target.value) / 1000;
+  updatePiAnimation(progress);
+  // Pause auto if user drags manually
+  if (piAutoPlay) {
+    piAutoPlay = false;
+    piPlayBtn.textContent = '▶';
+  }
+});
+
+piPlayBtn.addEventListener('click', () => {
+  if (piAutoPlay) {
+    piAutoPlay = false;
+    piPlayBtn.textContent = '▶';
+  } else {
+    // Restart from beginning if at the end
+    let currentProgress = parseInt(piSlider.value) / 1000;
+    if (currentProgress >= 0.999) {
+      currentProgress = 0;
+      piSlider.value = 0;
+      updatePiAnimation(0);
+    }
+    piAutoPlay = true;
+    piAutoStart = performance.now();
+    piAutoStartProgress = currentProgress;
+    piPlayBtn.textContent = '⏸';
+  }
+});
+
+function tickPiAuto() {
+  if (!piAutoPlay) return;
+  const elapsed = (performance.now() - piAutoStart) / 1000;
+  const duration = 8; // seconds for a full revolution
+  let progress = piAutoStartProgress + elapsed / duration;
+  if (progress >= 1) {
+    progress = 1;
+    piAutoPlay = false;
+    piPlayBtn.textContent = '▶';
+  }
+  piSlider.value = Math.round(progress * 1000);
+  updatePiAnimation(progress);
+}
+
+// ===== Animation loop =====
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+
+  // Twinkle stars in sky mode
+  if (isSkyMode) {
+    starMat.opacity = 0.7 + 0.3 * Math.sin(Date.now() * 0.001);
+  }
+
+  // Pi animation auto-play
+  tickPiAuto();
+  tickPiReveal();
+
+  renderer.render(scene, camera);
+}
+
+// ===== Resize =====
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ===== Init =====
+setMode('geometry');
+animate();
+
+// ===== Draggable & minimizable info panel =====
+(function setupInfoPanel() {
+  const panel = document.getElementById('info');
+  const header = document.getElementById('info-header');
+  const minimizeBtn = document.getElementById('info-minimize');
+
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let startLeft = 0, startTop = 0;
+  let savedHeight = null;
+
+  function getEventXY(e) {
+    if (e.touches && e.touches.length) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onDragStart(e) {
+    // Don't drag if clicking on a button inside the header
+    if (e.target.closest('button')) return;
+    isDragging = true;
+    panel.classList.add('dragging');
+    const rect = panel.getBoundingClientRect();
+    const xy = getEventXY(e);
+    startX = xy.x;
+    startY = xy.y;
+    startLeft = rect.left;
+    startTop = rect.top;
+    // Convert bottom/right positioning to top/left so dragging works smoothly
+    panel.style.left = startLeft + 'px';
+    panel.style.top = startTop + 'px';
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+    e.preventDefault();
+  }
+
+  function onDragMove(e) {
+    if (!isDragging) return;
+    const xy = getEventXY(e);
+    const dx = xy.x - startX;
+    const dy = xy.y - startY;
+    let newLeft = startLeft + dx;
+    let newTop = startTop + dy;
+
+    // Keep within viewport
+    const rect = panel.getBoundingClientRect();
+    const maxLeft = window.innerWidth - rect.width;
+    const maxTop = window.innerHeight - rect.height;
+    newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+    newTop = Math.max(0, Math.min(newTop, maxTop));
+
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+  }
+
+  function onDragEnd() {
+    if (isDragging) {
+      isDragging = false;
+      panel.classList.remove('dragging');
+    }
+  }
+
+  header.addEventListener('mousedown', onDragStart);
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+
+  header.addEventListener('touchstart', onDragStart, { passive: false });
+  document.addEventListener('touchmove', onDragMove, { passive: false });
+  document.addEventListener('touchend', onDragEnd);
+
+  // Minimize toggle
+  minimizeBtn.addEventListener('click', () => {
+    if (panel.classList.contains('minimized')) {
+      panel.classList.remove('minimized');
+      if (savedHeight) panel.style.height = savedHeight;
+      minimizeBtn.textContent = '−';
+      minimizeBtn.title = 'Réduire';
+    } else {
+      savedHeight = panel.style.height || panel.offsetHeight + 'px';
+      panel.classList.add('minimized');
+      panel.style.height = 'auto';
+      minimizeBtn.textContent = '+';
+      minimizeBtn.title = 'Agrandir';
+    }
+  });
+
+  // Double-click header to also toggle minimize
+  header.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button')) return;
+    minimizeBtn.click();
+  });
+
+  // Prevent OrbitControls from receiving wheel events when scrolling inside the panel body
+  document.getElementById('info-body').addEventListener('wheel', (e) => {
+    e.stopPropagation();
+  }, { passive: true });
+})();
+
+// Hide loader
+setTimeout(() => {
+  document.getElementById('loading').style.opacity = '0';
+  document.getElementById('loading').style.transition = 'opacity 0.6s';
+  setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+}, 400);
+
+</script>
+
+</body>
+</html>
