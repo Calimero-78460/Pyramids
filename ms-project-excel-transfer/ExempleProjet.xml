@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project xmlns="http://schemas.microsoft.com/project">
+<Name>Exemple</Name>
+<Title>Construction Pyramide - Exemple</Title>
+<Tasks>
+<Task><UID>0</UID><ID>0</ID><Name>Construction Pyramide</Name><OutlineLevel>0</OutlineLevel><Summary>1</Summary><Start>2026-01-05T08:00:00</Start><Finish>2026-03-13T17:00:00</Finish><Duration>PT400H0M0S</Duration><PercentComplete>35</PercentComplete></Task>
+<Task><UID>1</UID><ID>1</ID><Name>Etudes preliminaires</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-01-05T08:00:00</Start><Finish>2026-01-16T17:00:00</Finish><Duration>PT80H0M0S</Duration><PercentComplete>100</PercentComplete></Task>
+<Task><UID>2</UID><ID>2</ID><Name>Etude de terrain</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-01-05T08:00:00</Start><Finish>2026-01-09T17:00:00</Finish><Duration>PT40H0M0S</Duration><PercentComplete>100</PercentComplete></Task>
+<Task><UID>3</UID><ID>3</ID><Name>Plan architectural</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-01-12T08:00:00</Start><Finish>2026-01-16T17:00:00</Finish><Duration>PT40H0M0S</Duration><PercentComplete>100</PercentComplete><PredecessorLink><PredecessorUID>2</PredecessorUID><Type>1</Type></PredecessorLink></Task>
+<Task><UID>4</UID><ID>4</ID><Name>Validation plan</Name><OutlineLevel>1</OutlineLevel><Milestone>1</Milestone><Start>2026-01-19T08:00:00</Start><Finish>2026-01-19T08:00:00</Finish><Duration>PT0H0M0S</Duration><PercentComplete>100</PercentComplete><PredecessorLink><PredecessorUID>3</PredecessorUID><Type>1</Type></PredecessorLink></Task>
+<Task><UID>5</UID><ID>5</ID><Name>Approvisionnement</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-01-19T08:00:00</Start><Finish>2026-02-13T17:00:00</Finish><Duration>PT160H0M0S</Duration><PercentComplete>50</PercentComplete></Task>
+<Task><UID>6</UID><ID>6</ID><Name>Extraction des blocs de calcaire</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-01-19T08:00:00</Start><Finish>2026-02-06T17:00:00</Finish><Duration>PT120H0M0S</Duration><PercentComplete>60</PercentComplete><PredecessorLink><PredecessorUID>4</PredecessorUID><Type>1</Type></PredecessorLink></Task>
+<Task><UID>7</UID><ID>7</ID><Name>Transport fluvial</Name><OutlineLevel>2</OutlineLevel><Start>2026-01-26T08:00:00</Start><Finish>2026-02-13T17:00:00</Finish><Duration>PT120H0M0S</Duration><PercentComplete>30</PercentComplete><PredecessorLink><PredecessorUID>6</PredecessorUID><Type>3</Type></PredecessorLink></Task>
+<Task><UID>8</UID><ID>8</ID><Name>Construction</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-02-16T08:00:00</Start><Finish>2026-03-13T17:00:00</Finish><Duration>PT160H0M0S</Duration><PercentComplete>0</PercentComplete></Task>
+<Task><UID>9</UID><ID>9</ID><Name>Pose des fondations</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-02-16T08:00:00</Start><Finish>2026-02-27T17:00:00</Finish><Duration>PT80H0M0S</Duration><PercentComplete>0</PercentComplete><PredecessorLink><PredecessorUID>7</PredecessorUID><Type>1</Type></PredecessorLink></Task>
+<Task><UID>10</UID><ID>10</ID><Name>Empilement des blocs</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-03-02T08:00:00</Start><Finish>2026-03-13T17:00:00</Finish><Duration>PT80H0M0S</Duration><PercentComplete>0</PercentComplete><PredecessorLink><PredecessorUID>9</PredecessorUID><Type>1</Type></PredecessorLink></Task>
+</Tasks>
+</Project>

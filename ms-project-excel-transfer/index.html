@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MS Project → Excel · Transfert autonome</title>
+<style>
+  :root {
+    --blue-dark: #1F3864;
+    --blue-mid: #2E5395;
+    --blue-accent: #2B579A;
+    --blue-light: #D9E2F3;
+    --bar-complete: #1F4E79;
+    --bar-remaining: #9DC3E6;
+    --bar-summary: #404040;
+    --bar-critical: #C00000;
+    --bar-milestone: #000000;
+    --weekend: #F2F2F2;
+    --ink: #1a1a1a;
+    --paper: #ffffff;
+    --border: #d0d5dd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    background: #f5f6f8;
+  }
+  header {
+    background: var(--blue-dark);
+    color: #fff;
+    padding: 1.1rem 1.5rem;
+  }
+  header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+  header p { margin: 0.3rem 0 0; font-size: 0.85rem; color: #cdd8ee; }
+  main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .dropzone {
+    border: 2px dashed #9aa7bd;
+    border-radius: 8px;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: #556;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #fafbfc;
+  }
+  .dropzone.drag { border-color: var(--blue-accent); background: var(--blue-light); }
+  .dropzone strong { color: var(--blue-accent); }
+  .dropzone small { display: block; margin-top: 0.4rem; color: #778; }
+
+  .options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+  .options label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 0.55rem 1rem;
+    background: var(--blue-accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+  button:hover { background: var(--blue-dark); }
+  button.secondary { background: #eef1f6; color: var(--ink); }
+  button.secondary:hover { background: #dfe4ec; }
+
+  #status { margin-top: 1rem; font-size: 0.88rem; }
+  #status.error { color: #b02a2a; }
+  #status.success { color: #1a7a3c; }
+
+  .actions { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 0.9rem; font-size: 0.78rem; margin-top: 0.75rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .swatch { width: 14px; height: 14px; border-radius: 2px; display: inline-block; border: 1px solid rgba(0,0,0,0.15); }
+
+  #previewScroll {
+    overflow: auto;
+    max-height: 65vh;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  table#previewTable {
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  table#previewTable th, table#previewTable td {
+    border: 1px solid #e2e5ea;
+    padding: 2px 6px;
+    height: 22px;
+  }
+  table#previewTable thead th {
+    position: sticky;
+    top: 0;
+    background: var(--blue-mid);
+    color: #fff;
+    z-index: 2;
+    text-align: center;
+    font-weight: 600;
+  }
+  table#previewTable thead tr.row2 th { top: 22px; background: var(--blue-light); color: var(--ink); }
+  table#previewTable td.name { text-align: left; }
+  table#previewTable td.center { text-align: center; }
+  table#previewTable td.summary { font-weight: 700; background: var(--blue-light); }
+  footer { text-align: center; color: #99a; font-size: 0.78rem; padding: 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MS Project → Excel · Module de transfert autonome</h1>
+  <p>100% hors ligne — aucune connexion internet, aucune librairie externe. Fonctionne en ouvrant simplement ce fichier .html.</p>
+</header>
+<main>
+
+  <div class="panel">
+    <div class="dropzone" id="dropzone">
+      <strong>Glissez-déposez</strong> ici l'export XML de MS Project<br>
+      <small>ou cliquez pour choisir un fichier (.xml) — ou testez avec l'exemple intégré</small>
+    </div>
+    <input type="file" id="fileInput" accept=".xml" hidden>
+    <div class="options">
+      <label><input type="checkbox" id="optCritical" checked> Mettre en évidence le chemin critique (rouge)</label>
+      <label><input type="checkbox" id="optWeekend" checked> Griser les week-ends</label>
+      <button class="secondary" id="btnSample" type="button">Charger un exemple</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="panel" id="previewPanel" style="display:none">
+    <div class="actions">
+      <button id="btnExport" type="button">⬇ Générer le fichier Excel (.xlsx)</button>
+      <button class="secondary" id="btnReset" type="button">Charger un autre fichier</button>
+    </div>
+    <div class="legend">
+      <span><i class="swatch" style="background:#1F4E79"></i> Réalisé</span>
+      <span><i class="swatch" style="background:#9DC3E6"></i> Restant</span>
+      <span><i class="swatch" style="background:#404040"></i> Tâche récapitulative</span>
+      <span><i class="swatch" style="background:#000000"></i> Jalon</span>
+      <span><i class="swatch" style="background:#C00000"></i> Chemin critique</span>
+      <span><i class="swatch" style="background:#F2F2F2"></i> Week-end</span>
+    </div>
+    <div id="previewScroll"><table id="previewTable"></table></div>
+  </div>
+
+</main>
+<footer>Aucune donnée ne quitte votre poste — tout le traitement se fait dans votre navigateur.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================== Utilitaires génériques ============================== */
+
+  function escapeXml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&apos;" }[c];
+    });
+  }
+
+  function colLetter(n){ // n = index 0-based
+    let s = "", i = n + 1;
+    while (i > 0) {
+      const rem = (i - 1) % 26;
+      s = String.fromCharCode(65 + rem) + s;
+      i = Math.floor((i - 1) / 26);
+    }
+    return s;
+  }
+
+  const MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const MOIS_COURT = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  function fmtDate(d){
+    if (!d) return "";
+    return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear();
+  }
+
+  /* ============================== Parsing MS Project XML ============================== */
+
+  function directChildren(parent, tag){
+    return Array.from(parent.children || []).filter(c => c.tagName === tag);
+  }
+  function dcText(parent, tag){
+    const c = directChildren(parent, tag)[0];
+    return c ? c.textContent.trim() : "";
+  }
+
+  // Convertit une durée MS Project ("PT40H0M0S", "P2DT8H0M0S", ...) en jours (8h = 1 jour).
+  function parseDurationToDays(text){
+    if (!text) return 0;
+    const m = text.match(/^P(?:(\d+)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/);
+    if (!m) return 0;
+    const days = parseFloat(m[1] || 0);
+    const hours = parseFloat(m[2] || 0);
+    const minutes = parseFloat(m[3] || 0);
+    const seconds = parseFloat(m[4] || 0);
+    const totalHours = days * 24 + hours + minutes / 60 + seconds / 3600;
+    return Math.round((totalHours / 8) * 10) / 10;
+  }
+
+  function parseProjectXml(xmlText){
+    const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+    const perr = doc.querySelector("parsererror");
+    if (perr) throw new Error("Fichier XML invalide : " + perr.textContent.trim().slice(0, 200));
+
+    const root = doc.documentElement;
+    if (!root || !/Project$/i.test(root.tagName)) {
+      throw new Error("Ce fichier ne ressemble pas à un export XML MS Project (balise racine <Project> attendue).");
+    }
+    const projectTitle = dcText(root, "Title") || dcText(root, "Name") || "Projet";
+
+    const tasksRoot = directChildren(root, "Tasks")[0];
+    const rawTasks = tasksRoot ? directChildren(tasksRoot, "Task") : [];
+    if (!rawTasks.length) throw new Error("Aucune tâche trouvée dans le fichier (balise <Tasks><Task> absente).");
+
+    const uidToId = {};
+    const tasks = rawTasks.map(t => {
+      const uid = dcText(t, "UID");
+      const id = dcText(t, "ID");
+      uidToId[uid] = id;
+      const startRaw = dcText(t, "Start");
+      const finishRaw = dcText(t, "Finish");
+      return {
+        uid: uid,
+        id: id,
+        name: dcText(t, "Name"),
+        outlineLevel: parseInt(dcText(t, "OutlineLevel") || "1", 10),
+        isNull: dcText(t, "IsNull") === "1",
+        isSummary: dcText(t, "Summary") === "1",
+        isMilestone: dcText(t, "Milestone") === "1",
+        critical: dcText(t, "Critical") === "1",
+        start: startRaw ? new Date(startRaw) : null,
+        finish: finishRaw ? new Date(finishRaw) : null,
+        durationDays: parseDurationToDays(dcText(t, "Duration")),
+        pct: parseInt(dcText(t, "PercentComplete") || "0", 10),
+        predUids: directChildren(t, "PredecessorLink").map(p => dcText(p, "PredecessorUID")).filter(Boolean)
+      };
+    }).filter(t => !t.isNull && t.name);
+
+    tasks.forEach(t => {
+      t.predText = t.predUids.map(u => uidToId[u] || u).join(";");
+    });
+
+    const dated = tasks.filter(t => t.start && t.finish && !isNaN(t.start) && !isNaN(t.finish));
+    if (!dated.length) throw new Error("Aucune tâche avec des dates de début/fin exploitables.");
+    const projectStart = new Date(Math.min.apply(null, dated.map(t => t.start.getTime())));
+    const projectFinish = new Date(Math.max.apply(null, dated.map(t => t.finish.getTime())));
+
+    return { projectTitle: projectTitle, tasks: tasks, projectStart: projectStart, projectFinish: projectFinish };
+  }
+
+  /* ============================== Calcul de la ligne de temps ============================== */
+
+  const MS_DAY = 86400000;
+
+  function isoWeekNumber(d){
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = (date.getUTCDay() + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+    const diff = (date - firstThursday) / MS_DAY;
+    return 1 + Math.round((diff - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  }
+
+  function computeTimeline(start, end){
+    const totalDays = Math.max(1, Math.round((end - start) / MS_DAY) + 1);
+    let granularity;
+    if (totalDays <= 120) granularity = "day";
+    else if (totalDays <= 120 * 7) granularity = "week";
+    else granularity = "month";
+
+    const periods = [];
+    if (granularity === "day") {
+      for (let i = 0; i < totalDays; i++) {
+        const d = new Date(start.getTime() + i * MS_DAY);
+        periods.push({
+          start: d, end: new Date(d.getTime() + MS_DAY - 1),
+          label1: MOIS[d.getMonth()] + " " + d.getFullYear(),
+          label2: String(d.getDate()),
+          weekend: d.getDay() === 0 || d.getDay() === 6
+        });
+      }
+    } else if (granularity === "week") {
+      let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const dow = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - dow);
+      while (d <= end) {
+        const wEnd = new Date(d.getTime() + 6 * MS_DAY + (MS_DAY - 1));
+        periods.push({
+          start: new Date(d), end: wEnd,
+          label1: MOIS[d.getMonth()] + " " + d.getFullYear(),
+          label2: "S" + isoWeekNumber(d),
+          weekend: false
+        });
+        d = new Date(d.getTime() + 7 * MS_DAY);
+      }
+    } else {
+      let d = new Date(start.getFullYear(), start.getMonth(), 1);
+      while (d <= end) {
+        const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+        periods.push({
+          start: new Date(d), end: mEnd,
+          label1: String(d.getFullYear()),
+          label2: MOIS_COURT[d.getMonth()],
+          weekend: false
+        });
+        d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      }
+    }
+    return { granularity: granularity, periods: periods };
+  }
+
+  function taskPeriodState(task, period, opts){
+    if (!task.start || !task.finish || isNaN(task.start) || isNaN(task.finish)) return "none";
+    if (period.end < task.start || period.start > task.finish) return "none";
+    if (task.isMilestone) return "milestone";
+    if (task.isSummary) return "summary";
+    if (opts.critical && task.critical) return "critical";
+    const totalMs = (task.finish - task.start) || 1;
+    const completedUntil = new Date(task.start.getTime() + totalMs * (task.pct / 100));
+    return (period.end <= completedUntil) ? "complete" : "remaining";
+  }
+
+  const LEFT_COLS = [
+    { key: "id", title: "N°", width: 5, align: "center" },
+    { key: "name", title: "Nom de la tâche", width: 32, align: "left" },
+    { key: "duration", title: "Durée", width: 8, align: "center" },
+    { key: "start", title: "Début", width: 10, align: "center" },
+    { key: "finish", title: "Fin", width: 10, align: "center" },
+    { key: "pct", title: "% achevé", width: 8, align: "center" },
+    { key: "pred", title: "Préd.", width: 9, align: "center" }
+  ];
+
+  /* ============================== Rendu de l'aperçu HTML ============================== */
+
+  let currentModel = null;
+
+  function renderPreview(model){
+    const opts = { critical: document.getElementById("optCritical").checked, weekend: document.getElementById("optWeekend").checked };
+    const timeline = computeTimeline(model.projectStart, model.projectFinish);
+    model.timeline = timeline;
+    model.opts = opts;
+
+    const table = document.getElementById("previewTable");
+    table.innerHTML = "";
+    const thead = document.createElement("thead");
+    const row1 = document.createElement("tr");
+    const row2 = document.createElement("tr"); row2.className = "row2";
+
+    LEFT_COLS.forEach(c => {
+      const th1 = document.createElement("th"); th1.rowSpan = 2; th1.textContent = c.title; th1.style.minWidth = (c.width * 7) + "px";
+      row1.appendChild(th1);
+    });
+
+    let i = 0;
+    while (i < timeline.periods.length) {
+      let j = i;
+      while (j + 1 < timeline.periods.length && timeline.periods[j + 1].label1 === timeline.periods[i].label1) j++;
+      const th = document.createElement("th"); th.colSpan = (j - i + 1); th.textContent = timeline.periods[i].label1;
+      row1.appendChild(th);
+      i = j + 1;
+    }
+    timeline.periods.forEach(p => {
+      const th = document.createElement("th"); th.textContent = p.label2; th.style.minWidth = "26px";
+      if (p.weekend && opts.weekend) th.style.background = "#c9d2e0";
+      row2.appendChild(th);
+    });
+    thead.appendChild(row1); thead.appendChild(row2);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    model.tasks.forEach(t => {
+      const tr = document.createElement("tr");
+      const cells = {
+        id: t.id, name: t.name, duration: t.isMilestone ? "0 j" : (t.durationDays + " j"),
+        start: fmtDate(t.start), finish: fmtDate(t.finish), pct: t.pct + "%", pred: t.predText
+      };
+      LEFT_COLS.forEach(c => {
+        const td = document.createElement("td");
+        td.textContent = cells[c.key];
+        td.style.paddingLeft = (c.key === "name") ? (6 + t.outlineLevel * 14) + "px" : "";
+        td.className = (c.align === "center" ? "center " : "name ") + (t.isSummary ? "summary" : "");
+        tr.appendChild(td);
+      });
+      timeline.periods.forEach(p => {
+        const td = document.createElement("td");
+        const state = taskPeriodState(t, p, opts);
+        td.style.background = barColor(state) || (p.weekend && opts.weekend ? "#F2F2F2" : "");
+        if (state === "milestone") { td.textContent = "◆"; td.style.textAlign = "center"; td.style.color = "#fff"; }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    document.getElementById("previewPanel").style.display = "";
+  }
+
+  function barColor(state){
+    switch (state) {
+      case "complete": return "#1F4E79";
+      case "remaining": return "#9DC3E6";
+      case "summary": return "#404040";
+      case "milestone": return "#000000";
+      case "critical": return "#C00000";
+      default: return "";
+    }
+  }
+
+  /* ============================== Générateur XLSX (zip minimal, pur JS) ============================== */
+
+  const CRC_TABLE = (function(){
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(bytes){
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function buildZip(files){
+    const encoder = new TextEncoder();
+    const centralParts = [];
+    const chunks = [];
+    let offset = 0;
+    function push(u8){ chunks.push(u8); offset += u8.length; }
+
+    files.forEach(f => {
+      const nameBytes = encoder.encode(f.name);
+      const data = f.data;
+      const crc = crc32(data);
+      const localOffset = offset;
+
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true);
+      lh.setUint16(4, 20, true);
+      lh.setUint16(6, 0, true);
+      lh.setUint16(8, 0, true);
+      lh.setUint16(10, 0, true);
+      lh.setUint16(12, 0x21, true);
+      lh.setUint32(14, crc, true);
+      lh.setUint32(18, data.length, true);
+      lh.setUint32(22, data.length, true);
+      lh.setUint16(26, nameBytes.length, true);
+      lh.setUint16(28, 0, true);
+      push(new Uint8Array(lh.buffer));
+      push(nameBytes);
+      push(data);
+
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true);
+      ch.setUint16(4, 20, true);
+      ch.setUint16(6, 20, true);
+      ch.setUint16(8, 0, true);
+      ch.setUint16(10, 0, true);
+      ch.setUint16(12, 0, true);
+      ch.setUint16(14, 0x21, true);
+      ch.setUint32(16, crc, true);
+      ch.setUint32(20, data.length, true);
+      ch.setUint32(24, data.length, true);
+      ch.setUint16(28, nameBytes.length, true);
+      ch.setUint16(30, 0, true);
+      ch.setUint16(32, 0, true);
+      ch.setUint16(34, 0, true);
+      ch.setUint16(36, 0, true);
+      ch.setUint32(38, 0, true);
+      ch.setUint32(42, localOffset, true);
+      centralParts.push(new Uint8Array(ch.buffer));
+      centralParts.push(nameBytes);
+    });
+
+    const centralStart = offset;
+    centralParts.forEach(push);
+    const centralSize = offset - centralStart;
+
+    const eocd = new DataView(new ArrayBuffer(22));
+    eocd.setUint32(0, 0x06054b50, true);
+    eocd.setUint16(4, 0, true);
+    eocd.setUint16(6, 0, true);
+    eocd.setUint16(8, files.length, true);
+    eocd.setUint16(10, files.length, true);
+    eocd.setUint32(12, centralSize, true);
+    eocd.setUint32(16, centralStart, true);
+    eocd.setUint16(20, 0, true);
+    push(new Uint8Array(eocd.buffer));
+
+    return new Blob(chunks, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  }
+
+  // Registre de styles Excel (fonts/fills/borders/cellXfs) avec dédoublonnage.
+  function StyleRegistry(){
+    this.fonts = [{ bold: false, color: "000000", size: 11 }];
+    this.fills = [{ rgb: null }, { rgb: "gray125" }]; // 0=none, 1=gray125 (réservés OOXML)
+    this.borders = [{ thin: false }, { thin: true }];
+    this.xfs = [{ font: 0, fill: 0, border: 0, align: "left", indent: 0 }];
+    this._cache = {};
+  }
+  StyleRegistry.prototype.get = function(opts){
+    opts = Object.assign({ bold: false, color: "000000", fill: null, align: "left", indent: 0, border: true }, opts);
+    const key = JSON.stringify(opts);
+    if (this._cache[key] !== undefined) return this._cache[key];
+
+    let fontId = this.fonts.findIndex(f => f.bold === opts.bold && f.color === opts.color);
+    if (fontId < 0) { fontId = this.fonts.length; this.fonts.push({ bold: opts.bold, color: opts.color, size: 11 }); }
+
+    let fillId = 0;
+    if (opts.fill) {
+      fillId = this.fills.findIndex(f => f.rgb === opts.fill);
+      if (fillId < 0) { fillId = this.fills.length; this.fills.push({ rgb: opts.fill }); }
+    }
+    const borderId = opts.border ? 1 : 0;
+
+    const xfId = this.xfs.length;
+    this.xfs.push({ font: fontId, fill: fillId, border: borderId, align: opts.align, indent: opts.indent });
+    this._cache[key] = xfId;
+    return xfId;
+  };
+  StyleRegistry.prototype.toXml = function(){
+    let xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+    xml += '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+
+    xml += '<fonts count="' + this.fonts.length + '">';
+    this.fonts.forEach(f => {
+      xml += '<font><sz val="' + f.size + '"/><color rgb="FF' + f.color + '"/><name val="Calibri"/>' + (f.bold ? "<b/>" : "") + '</font>';
+    });
+    xml += '</fonts>';
+
+    xml += '<fills count="' + this.fills.length + '">';
+    this.fills.forEach((f, idx) => {
+      if (idx === 0) xml += '<fill><patternFill patternType="none"/></fill>';
+      else if (idx === 1) xml += '<fill><patternFill patternType="gray125"/></fill>';
+      else xml += '<fill><patternFill patternType="solid"><fgColor rgb="FF' + f.rgb + '"/><bgColor rgb="FF' + f.rgb + '"/></patternFill></fill>';
+    });
+    xml += '</fills>';
+
+    xml += '<borders count="2">';
+    xml += '<border><left/><right/><top/><bottom/><diagonal/></border>';
+    xml += '<border><left style="thin"><color rgb="FFC9CDD3"/></left><right style="thin"><color rgb="FFC9CDD3"/></right><top style="thin"><color rgb="FFC9CDD3"/></top><bottom style="thin"><color rgb="FFC9CDD3"/></bottom><diagonal/></border>';
+    xml += '</borders>';
+
+    xml += '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>';
+
+    xml += '<cellXfs count="' + this.xfs.length + '">';
+    this.xfs.forEach(xf => {
+      xml += '<xf numFmtId="0" fontId="' + xf.font + '" fillId="' + xf.fill + '" borderId="' + xf.border + '" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">';
+      xml += '<alignment horizontal="' + xf.align + '" vertical="center"' + (xf.indent ? ' indent="' + xf.indent + '"' : '') + '/>';
+      xml += '</xf>';
+    });
+    xml += '</cellXfs>';
+
+    xml += '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>';
+    xml += '</styleSheet>';
+    return xml;
+  };
+
+  function buildXlsx(model){
+    const reg = new StyleRegistry();
+    const opts = model.opts;
+    const timeline = model.timeline;
+    const nLeft = LEFT_COLS.length;
+    const nCols = nLeft + timeline.periods.length;
+
+    const S_HEADER = reg.get({ bold: true, color: "FFFFFF", fill: "1F3864", align: "center" });
+    const S_TL_HEADER2 = reg.get({ bold: true, fill: "D9E2F3", align: "center" });
+    const S_LEFT = reg.get({ align: "left" });
+    const S_LEFT_SUM = reg.get({ bold: true, fill: "D9E2F3", align: "left" });
+    const S_CENTER = reg.get({ align: "center" });
+    const S_CENTER_SUM = reg.get({ bold: true, fill: "D9E2F3", align: "center" });
+    const S_TL_NONE = reg.get({ align: "center" });
+    const S_TL_WEEKEND = reg.get({ align: "center", fill: "F2F2F2" });
+    const S_TL_COMPLETE = reg.get({ align: "center", fill: "1F4E79" });
+    const S_TL_REMAINING = reg.get({ align: "center", fill: "9DC3E6" });
+    const S_TL_SUMMARY = reg.get({ align: "center", fill: "404040" });
+    const S_TL_MILESTONE = reg.get({ align: "center", fill: "000000", color: "FFFFFF", bold: true });
+    const S_TL_CRITICAL = reg.get({ align: "center", fill: "C00000" });
+
+    function leftStyle(key, isSummary){
+      const centerCols = { duration: 1, start: 1, finish: 1, pct: 1, pred: 1 };
+      if (centerCols[key]) return isSummary ? S_CENTER_SUM : S_CENTER;
+      return isSummary ? S_LEFT_SUM : S_LEFT;
+    }
+    function tlStyle(state, weekend){
+      switch (state) {
+        case "complete": return S_TL_COMPLETE;
+        case "remaining": return S_TL_REMAINING;
+        case "summary": return S_TL_SUMMARY;
+        case "milestone": return S_TL_MILESTONE;
+        case "critical": return S_TL_CRITICAL;
+        default: return (weekend && opts.weekend) ? S_TL_WEEKEND : S_TL_NONE;
+      }
+    }
+
+    // Construction ligne par ligne du <sheetData>
+    const rows = [];
+    const merges = [];
+
+    // Ligne 1 : mois/années (fusionnées)
+    let r1 = new Array(nCols).fill(null);
+    for (let c = 0; c < nLeft; c++) r1[c] = { v: "", s: S_HEADER };
+    let i = 0;
+    while (i < timeline.periods.length) {
+      let j = i;
+      while (j + 1 < timeline.periods.length && timeline.periods[j + 1].label1 === timeline.periods[i].label1) j++;
+      r1[nLeft + i] = { v: timeline.periods[i].label1, s: S_HEADER };
+      for (let k = i + 1; k <= j; k++) r1[nLeft + k] = { v: "", s: S_HEADER };
+      if (j > i) merges.push([1, nLeft + i + 1, 1, nLeft + j + 1]);
+      i = j + 1;
+    }
+    rows.push(r1);
+
+    // Ligne 2 : en-têtes colonnes + jour/semaine/mois
+    let r2 = new Array(nCols).fill(null);
+    LEFT_COLS.forEach((c, idx) => { r2[idx] = { v: c.title, s: S_TL_HEADER2 }; });
+    timeline.periods.forEach((p, idx) => { r2[nLeft + idx] = { v: p.label2, s: S_TL_HEADER2 }; });
+    rows.push(r2);
+    merges.push([1, 1, 2, 1]); // fusion verticale colonne N°
+    LEFT_COLS.forEach((c, idx) => merges.push([1, idx + 1, 2, idx + 1]));
+
+    // Lignes de tâches
+    model.tasks.forEach(t => {
+      const row = new Array(nCols).fill(null);
+      const vals = {
+        id: t.id, name: "  ".repeat(t.outlineLevel) + t.name,
+        duration: t.isMilestone ? "0 j" : (t.durationDays + " j"),
+        start: fmtDate(t.start), finish: fmtDate(t.finish), pct: t.pct + "%", pred: t.predText
+      };
+      LEFT_COLS.forEach((c, idx) => {
+        row[idx] = { v: vals[c.key], s: leftStyle(c.key, t.isSummary) };
+      });
+      timeline.periods.forEach((p, idx) => {
+        const state = taskPeriodState(t, p, opts);
+        const style = tlStyle(state, p.weekend);
+        row[nLeft + idx] = { v: (state === "milestone" ? "◆" : ""), s: style };
+      });
+      rows.push(row);
+    });
+
+    // Génère le XML de la feuille
+    let sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+    sheetXml += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    sheetXml += '<sheetViews><sheetView workbookViewId="0"><pane xSplit="' + nLeft + '" ySplit="2" topLeftCell="' + colLetter(nLeft) + '3" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>';
+
+    sheetXml += '<cols>';
+    LEFT_COLS.forEach((c, idx) => { sheetXml += '<col min="' + (idx + 1) + '" max="' + (idx + 1) + '" width="' + c.width + '" customWidth="1"/>'; });
+    const tlWidth = timeline.granularity === "day" ? 3.2 : (timeline.granularity === "week" ? 5.5 : 8);
+    sheetXml += '<col min="' + (nLeft + 1) + '" max="' + nCols + '" width="' + tlWidth + '" customWidth="1"/>';
+    sheetXml += '</cols>';
+
+    sheetXml += '<sheetData>';
+    rows.forEach((row, rIdx) => {
+      sheetXml += '<row r="' + (rIdx + 1) + '">';
+      row.forEach((cell, cIdx) => {
+        if (!cell) return;
+        const ref = colLetter(cIdx) + (rIdx + 1);
+        sheetXml += '<c r="' + ref + '" s="' + cell.s + '" t="inlineStr"><is><t xml:space="preserve">' + escapeXml(cell.v) + '</t></is></c>';
+      });
+      sheetXml += '</row>';
+    });
+    sheetXml += '</sheetData>';
+
+    if (merges.length) {
+      sheetXml += '<mergeCells count="' + merges.length + '">';
+      merges.forEach(m => {
+        sheetXml += '<mergeCell ref="' + colLetter(m[1] - 1) + m[0] + ':' + colLetter(m[3] - 1) + m[2] + '"/>';
+      });
+      sheetXml += '</mergeCells>';
+    }
+    sheetXml += '</worksheet>';
+
+    const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+      '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+      '</Types>';
+
+    const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
+      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
+      '</Relationships>';
+
+    const workbookRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      '</Relationships>';
+
+    const workbookXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets><sheet name="Gantt" sheetId="1" r:id="rId1"/></sheets></workbook>';
+
+    const coreXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">' +
+      '<dc:title>' + escapeXml(model.projectTitle) + '</dc:title></cp:coreProperties>';
+
+    const appXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>MS Project to Excel Transfer</Application></Properties>';
+
+    const encoder = new TextEncoder();
+    const files = [
+      { name: "[Content_Types].xml", data: encoder.encode(contentTypes) },
+      { name: "_rels/.rels", data: encoder.encode(rootRels) },
+      { name: "docProps/core.xml", data: encoder.encode(coreXml) },
+      { name: "docProps/app.xml", data: encoder.encode(appXml) },
+      { name: "xl/workbook.xml", data: encoder.encode(workbookXml) },
+      { name: "xl/_rels/workbook.xml.rels", data: encoder.encode(workbookRels) },
+      { name: "xl/styles.xml", data: encoder.encode(reg.toXml()) },
+      { name: "xl/worksheets/sheet1.xml", data: encoder.encode(sheetXml) }
+    ];
+    return buildZip(files);
+  }
+
+  /* ============================== UI / Événements ============================== */
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const statusEl = document.getElementById("status");
+
+  function setStatus(msg, type){
+    statusEl.textContent = msg;
+    statusEl.className = type || "";
+  }
+
+  function handleFile(file){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try {
+        const model = parseProjectXml(e.target.result);
+        currentModel = model;
+        renderPreview(model);
+        setStatus("✔ « " + model.projectTitle + " » : " + model.tasks.length + " tâches chargées (du " +
+          fmtDate(model.projectStart) + " au " + fmtDate(model.projectFinish) + ").", "success");
+      } catch (err) {
+        setStatus("✘ " + err.message, "error");
+        document.getElementById("previewPanel").style.display = "none";
+      }
+    };
+    reader.onerror = function(){ setStatus("✘ Impossible de lire le fichier.", "error"); };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+  ["dragenter", "dragover"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove("drag"); }));
+  dropzone.addEventListener("drop", e => { if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+  document.getElementById("optCritical").addEventListener("change", () => { if (currentModel) renderPreview(currentModel); });
+  document.getElementById("optWeekend").addEventListener("change", () => { if (currentModel) renderPreview(currentModel); });
+
+  document.getElementById("btnReset").addEventListener("click", () => {
+    currentModel = null;
+    document.getElementById("previewPanel").style.display = "none";
+    setStatus("");
+    fileInput.value = "";
+  });
+
+  document.getElementById("btnExport").addEventListener("click", () => {
+    if (!currentModel) return;
+    const blob = buildXlsx(currentModel);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (currentModel.projectTitle || "projet").replace(/[^\w\-]+/g, "_") + "_Gantt.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+
+  document.getElementById("btnSample").addEventListener("click", () => {
+    currentModel = null;
+    try {
+      const model = parseProjectXml(SAMPLE_XML);
+      currentModel = model;
+      renderPreview(model);
+      setStatus("✔ Exemple chargé : « " + model.projectTitle + " » (" + model.tasks.length + " tâches).", "success");
+    } catch (err) {
+      setStatus("✘ " + err.message, "error");
+    }
+  });
+
+  // Exemple minimal au format XML MS Project, embarqué pour test hors-ligne sans dépendance externe.
+  const SAMPLE_XML = '<?xml version="1.0" encoding="UTF-8"?>' +
+  '<Project xmlns="http://schemas.microsoft.com/project">' +
+  '<Name>Exemple</Name><Title>Construction Pyramide - Exemple</Title>' +
+  '<Tasks>' +
+  '<Task><UID>0</UID><ID>0</ID><Name>Construction Pyramide</Name><OutlineLevel>0</OutlineLevel><Summary>1</Summary><Start>2026-01-05T08:00:00</Start><Finish>2026-03-13T17:00:00</Finish><Duration>PT400H0M0S</Duration><PercentComplete>35</PercentComplete></Task>' +
+  '<Task><UID>1</UID><ID>1</ID><Name>Etudes preliminaires</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-01-05T08:00:00</Start><Finish>2026-01-16T17:00:00</Finish><Duration>PT80H0M0S</Duration><PercentComplete>100</PercentComplete></Task>' +
+  '<Task><UID>2</UID><ID>2</ID><Name>Etude de terrain</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-01-05T08:00:00</Start><Finish>2026-01-09T17:00:00</Finish><Duration>PT40H0M0S</Duration><PercentComplete>100</PercentComplete></Task>' +
+  '<Task><UID>3</UID><ID>3</ID><Name>Plan architectural</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-01-12T08:00:00</Start><Finish>2026-01-16T17:00:00</Finish><Duration>PT40H0M0S</Duration><PercentComplete>100</PercentComplete><PredecessorLink><PredecessorUID>2</PredecessorUID><Type>1</Type></PredecessorLink></Task>' +
+  '<Task><UID>4</UID><ID>4</ID><Name>Validation plan</Name><OutlineLevel>1</OutlineLevel><Milestone>1</Milestone><Start>2026-01-19T08:00:00</Start><Finish>2026-01-19T08:00:00</Finish><Duration>PT0H0M0S</Duration><PercentComplete>100</PercentComplete><PredecessorLink><PredecessorUID>3</PredecessorUID><Type>1</Type></PredecessorLink></Task>' +
+  '<Task><UID>5</UID><ID>5</ID><Name>Approvisionnement</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-01-19T08:00:00</Start><Finish>2026-02-13T17:00:00</Finish><Duration>PT160H0M0S</Duration><PercentComplete>50</PercentComplete></Task>' +
+  '<Task><UID>6</UID><ID>6</ID><Name>Extraction des blocs de calcaire</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-01-19T08:00:00</Start><Finish>2026-02-06T17:00:00</Finish><Duration>PT120H0M0S</Duration><PercentComplete>60</PercentComplete><PredecessorLink><PredecessorUID>4</PredecessorUID><Type>1</Type></PredecessorLink></Task>' +
+  '<Task><UID>7</UID><ID>7</ID><Name>Transport fluvial</Name><OutlineLevel>2</OutlineLevel><Start>2026-01-26T08:00:00</Start><Finish>2026-02-13T17:00:00</Finish><Duration>PT120H0M0S</Duration><PercentComplete>30</PercentComplete><PredecessorLink><PredecessorUID>6</PredecessorUID><Type>3</Type></PredecessorLink></Task>' +
+  '<Task><UID>8</UID><ID>8</ID><Name>Construction</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-02-16T08:00:00</Start><Finish>2026-03-13T17:00:00</Finish><Duration>PT160H0M0S</Duration><PercentComplete>0</PercentComplete></Task>' +
+  '<Task><UID>9</UID><ID>9</ID><Name>Pose des fondations</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-02-16T08:00:00</Start><Finish>2026-02-27T17:00:00</Finish><Duration>PT80H0M0S</Duration><PercentComplete>0</PercentComplete><PredecessorLink><PredecessorUID>7</PredecessorUID><Type>1</Type></PredecessorLink></Task>' +
+  '<Task><UID>10</UID><ID>10</ID><Name>Empilement des blocs</Name><OutlineLevel>2</OutlineLevel><Critical>1</Critical><Start>2026-03-02T08:00:00</Start><Finish>2026-03-13T17:00:00</Finish><Duration>PT80H0M0S</Duration><PercentComplete>0</PercentComplete><PredecessorLink><PredecessorUID>9</PredecessorUID><Type>1</Type></PredecessorLink></Task>' +
+  '</Tasks></Project>';
+
+})();
+</script>
+</body>
+</html>
